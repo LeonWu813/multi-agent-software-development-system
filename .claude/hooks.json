@@ -1,0 +1,74 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude needs input or permission\" with title \"Claude Code: Notification\"'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"A subagent is starting\" with title \"Claude Code: SubagentStart\"'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"A task has completed\" with title \"Claude Code: TaskCompleted\"'"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"A subagent has stopped\" with title \"Claude Code: SubagentStop\"'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/handoff.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); active=$(echo \"$input\" | jq -r '.stop_hook_active // false' 2>/dev/null); [ \"$active\" = \"true\" ] || osascript -e 'display notification \"Claude has finished\" with title \"Claude Code: Stop\"'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/handoff.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

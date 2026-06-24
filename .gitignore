@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Secrets — never commit
+.env
+*.env
+
+# Project-generated artifacts (created per-project by init-project.sh, not part of the harness)
+project-planning/
