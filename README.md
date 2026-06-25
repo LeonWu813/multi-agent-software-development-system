@@ -8,7 +8,7 @@ no black box. A human reviews and approves every handoff.
 
 **It produces real software.** This system designed, implemented, and QA'd
 **[TabVault](https://tab-vault.com)**, a deployed full-stack tab/notes manager.
-→ [TabVault repo](https://github.com/LeonWu813/tab-management) <!-- update if the product lives in its own repo -->
+→ [TabVault repo](https://github.com/LeonWu813/tab-management)
 
 ---
 
@@ -121,9 +121,4 @@ sync rulebook, and the git/rollback conventions — see **[ARCHITECTURE.md](./AR
      Edit to match what's actually running vs. specified. Example below. -->
 
 The six agent definitions, skills, and handoff hooks are implemented and were used
-end to end to build [TabVault](https://tab-vault.com). [Note anything that is
-specified but not yet implemented here.]
-
-## License
-
-<!-- Pick one, e.g. MIT — or remove this section. -->
+end to end to build [TabVault](https://tab-vault.com). And more going on~
