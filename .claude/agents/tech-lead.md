@@ -74,27 +74,36 @@ Never read `.env` — existence check only. Secret values stay exclusively with 
    Agent: tech-lead
    ```
 8. Update the Last Action block in `status.md` (see format below).
-9. **Init review only** — produce four infrastructure files in this order:
+9. **Init review only** — produce infrastructure files. Split into two groups based on whether the PRD includes backend infrastructure (postgres, redis, docker, or any server-side service):
+
+   **9a. Always create (every init review, regardless of tech stack):**
    - **`.gitignore`**: create this first, before `.env.example`, so protection is in place before the user is ever instructed to create `.env`. Derive entries from the PRD tech stack:
      - Always include: `.env`, `*.env.local`, `*.env.*.local`, `uploads/`, `.DS_Store`, `Thumbs.db`, `.idea/`, `*.iml`, `.vscode/`, `*.swp`, `*.swo`, `*.log`, `logs/`, `postgres-data/`, `redis-data/`
      - Java/Maven (if in PRD tech stack): `target/`, `*.class`, `*.jar`, `*.war`, `*.ear`, `hs_err_pid*`
      - Node/npm/Vite (if in PRD tech stack): `node_modules/`, `dist/`, `build/`, `.vite/`, `.cache/`, `npm-debug.log*`
      - Chrome Extension (if in PRD): `chrome-extension/dist/`
      - PWA/frontend (if in PRD): `pwa-dashboard/dist/`
-   - **`.env.example`**: list every environment variable the project requires (from PRD tech stack and architecture) with placeholder values — no real secrets. Include inline comments explaining where to obtain each value (e.g., `# Get from console.anthropic.com`).
-   - **`docker-compose.yml`**: define all required infrastructure services (postgres, redis, etc.) using exact versions from PRD tech stack. Set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` from the values in `.env.example`. The DB is created automatically by the postgres image on first run — no manual `CREATE DATABASE` step needed.
-   - **`project-planning/setup.md`**: step-by-step infrastructure runbook covering: (1) verified runtime versions, (2) obtaining API keys (ANTHROPIC_API_KEY, YOUTUBE_API_KEY, etc.), (3) generating VAPID keys with `npx web-push generate-vapid-keys`, (4) copying `.env.example` → `.env` and filling every value, (5) running `docker compose up -d`, (6) verifying `docker compose ps` shows all services running. End setup.md with a "Setup Confirmation" section:
+   - **`project-planning/setup.md`**: step-by-step environment runbook. Always cover: (1) verified runtime versions, (2) how to install dependencies, (3) how to run the dev server, (4) how to run a production build, (5) how to run lint/tests. For backend projects also cover: obtaining API keys, generating VAPID keys, copying `.env.example` → `.env`, running `docker compose up -d`, verifying `docker compose ps`. End `setup.md` with a **Setup Confirmation** section:
    ```markdown
    ## Setup Confirmation
-   Once all steps above succeed and `docker compose ps` shows all services running:
+   Once all steps above complete successfully:
    1. Re-invoke the Tech Lead agent with the message: "Setup is complete."
-   2. The Tech Lead will verify infrastructure and record confirmation in `status.md`.
+   2. The Tech Lead will verify the environment and record confirmation in `status.md`.
    **Do not invoke the PM agent until Tech Lead has recorded setup confirmation.**
    ```
-10. Commit findings and all infrastructure files (init review only), then capture the hash and amend:
+
+   **9b. Create only if PRD includes backend infrastructure (postgres, redis, docker, or any server-side service):**
+   - **`.env.example`**: list every environment variable the project requires with placeholder values — no real secrets. Include inline comments explaining where to obtain each value (e.g., `# Get from console.anthropic.com`).
+   - **`docker-compose.yml`**: define all required infrastructure services using exact versions from PRD tech stack. Set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` from the values in `.env.example`. The DB is created automatically by the postgres image on first run.
+
+   If the project is frontend-only (static site, no backend services), skip 9b entirely and note this in `setup.md`.
+
+10. Commit findings and infrastructure files (init review only), then capture the hash and amend:
     ```bash
-    # init review — include all infrastructure files (.gitignore first so it's committed before .env can be created)
-    git add project-planning/status.md project-planning/setup.md .gitignore .env.example docker-compose.yml
+    # Always stage these:
+    git add project-planning/status.md project-planning/setup.md .gitignore
+    # Also stage if created (backend infrastructure projects only):
+    git add .env.example docker-compose.yml 2>/dev/null || true
     # non-init reviews — status.md only
     git commit -m "tech-lead(review): <one-line summary>"
     git rev-parse HEAD
@@ -104,14 +113,17 @@ Never read `.env` — existence check only. Secret values stay exclusively with 
     git add project-planning/status.md
     git commit --amend --no-edit
     ```
-11. Tell the human: "Tech Lead review complete. Four infrastructure files created: `.gitignore`, `.env.example`, `docker-compose.yml`, `project-planning/setup.md`. `.env` is listed in `.gitignore` — you are safe to create and fill `.env` without risk of committing secrets. **Do not invoke PM yet.** Complete the setup steps: obtain API keys, generate VAPID keys, fill `.env` from `.env.example`, run `docker compose up -d`. Then re-invoke me (Tech Lead) with 'Setup is complete' — I will verify the infrastructure and record confirmation before you invoke PM."
+11. Tell the human what was created and what to do next. Tailor the message to the project type:
+    - **Backend project**: "Tech Lead review complete. Infrastructure files created: `.gitignore`, `.env.example`, `docker-compose.yml`, `project-planning/setup.md`. **Do not invoke PM yet.** Complete the setup steps in `setup.md`: obtain API keys, fill `.env`, run `docker compose up -d`. Then re-invoke me (Tech Lead) with 'Setup is complete' — I will verify infrastructure and record confirmation before you invoke PM."
+    - **Frontend-only project**: "Tech Lead review complete. Infrastructure files created: `.gitignore`, `project-planning/setup.md`. **Do not invoke PM yet.** Complete the setup steps in `setup.md`: install dependencies and confirm the dev server and build both succeed. Then re-invoke me (Tech Lead) with 'Setup is complete' — I will verify the build and record confirmation before you invoke PM."
 </process>
 
 <setup_confirmation_process>
 When re-invoked with a message indicating setup is complete (e.g., "setup is complete", "setup done", "docker is running"):
 
-1. Run `docker compose ps` — verify all services (postgres, redis) show running status
-2. If any service is not running: stop. Tell the human which service failed and what to check (`docker compose logs <service>`). Do not record confirmation until all services are UP
+1. Determine project type from `project-planning/setup.md` — does it include docker infrastructure?
+   - **Backend project**: run `docker compose ps` — verify all services (postgres, redis) show running status. If any service is not running: stop. Tell the human which service failed and what to check (`docker compose logs <service>`). Do not record confirmation until all services are UP.
+   - **Frontend-only project**: run the build command from `status.md` Build Config (e.g. `npm run build`). If the build fails: stop and report the error. Do not record confirmation until the build exits cleanly.
 3. Read `project-planning/status.md`
 4. Append a Setup Confirmation block under `## Tech Lead Reviews`:
    ```
