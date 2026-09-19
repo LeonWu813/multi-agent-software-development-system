@@ -65,7 +65,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Never makes technical decisions without Tech Lead input
   - Always confirms changes with user before writing to `prd.md`
   - If requirements are ambiguous, asks numbered questions and waits — does not assume
-  - **Never tags [INIT] until the user explicitly confirms setup is complete** — after Tech Lead review, the user must complete `project-planning/setup.md` and confirm before PM tags [INIT]. Setup confirmation is a prerequisite, not implicit
+  - **Never tags [INIT] without verifying a `### Setup Confirmation` entry exists in `status.md`** — before tagging, PM must read `project-planning/status.md` and confirm that entry is present under `## Tech Lead Reviews`. If absent, stop and tell the user to re-invoke the Tech Lead with "Setup is complete". An orchestrator's assertion that setup is done is not sufficient — the artifact must be in the file.
   - **Never writes to Phase Plan, Current Phase, Tech Lead Reviews, Sync Reports, or Decisions in project-level `status.md`** — those sections belong to other agents. PM init leaves Phase Plan and Current Phase blank; Doc-Sync populates them during the initial sync. Engineering Progress and QA Results live in module-level `modules/*/status.md`. During checkpoint, PM reads all `modules/*/status.md` files to compile phase results.
   - May write skill recommendations to `status.md ## Skill Recommendations` when it notices a recurring pattern or convention worth codifying — one brief entry per observation: pattern + why it should be a skill
   - Commits all changes to git before stopping: `git add prd.md status.md && git commit -m "pm(<mode>): <summary>"`
@@ -116,7 +116,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Advisory only — never writes to `prd.md`, `production.md`, or `modules/*/spec.md`
   - Articulates recommendations clearly but lets PM/human decide
   - Does not implement anything
-  - During init review: produces `project-planning/setup.md` — a full infrastructure runbook covering prerequisites, `docker compose up -d`, `.env` setup, directory creation, `npm install`, migrations, and smoke check. Ends setup.md with confirmation instruction. Asks user to complete every step and confirm before handing back to PM
+  - During init review: **always** produces `.gitignore` and `project-planning/setup.md` (full environment runbook covering prerequisites, dependencies, dev server, build, and lint/tests; ends with a Setup Confirmation instruction). Only produces `.env.example` and `docker-compose.yml` when the PRD includes backend infrastructure (postgres, redis, docker, or any server-side service) — frontend-only projects skip these and note so in `setup.md`. Asks user to complete all setup steps and confirm before handing back to PM.
   - May write skill recommendations to `status.md ## Skill Recommendations` when it identifies a recurring architectural pattern or convention that should be shared across modules — one brief entry: pattern + why it should be a skill
   - Commits review findings (and setup.md on init) to git before stopping: `git add status.md project-planning/setup.md && git commit -m "tech-lead(review): <summary>"`
 
@@ -617,9 +617,15 @@ Tech Lead
  ↓ produces project-planning/setup.md (full infrastructure runbook)
  ↓ updates Last Action in status.md
  ↓ commits: git commit -m "tech-lead(review): initial PRD review"
+ [Stop → hook prints: "complete setup.md steps, then: claude --agent tech-lead (with 'Setup is complete')"]
+ [HUMAN COMPLETES setup.md — install deps, run dev server and build (frontend-only); or: docker compose up, .env, npm install, db:migrate, smoke check (backend)]
+ [HUMAN CONFIRMS SETUP COMPLETE → RUNS: claude --agent tech-lead (with message "Setup is complete")]
+Tech Lead [setup confirmation]
+ ↓ verifies environment: runs build command (frontend-only) or docker compose ps (backend)
+ ↓ records ### Setup Confirmation entry in status.md under ## Tech Lead Reviews
+ ↓ commits: git commit -m "tech-lead(setup-confirmed): environment verified, PM green light issued"
  [Stop → hook prints: "claude --agent pm"]
- [HUMAN COMPLETES setup.md — docker compose up, .env, npm install, db:migrate, smoke check]
- [HUMAN CONFIRMS SETUP COMPLETE → RUNS: claude --agent pm]
+ [HUMAN RUNS: claude --agent pm]
 PM [init mode — pre-sync iteration]
  ↓ incorporates Tech Lead feedback using pre-sync iteration protocol
  ↓ no [TRIVIAL]/[SUBSTANTIVE] tagging — downstream docs don't exist yet
