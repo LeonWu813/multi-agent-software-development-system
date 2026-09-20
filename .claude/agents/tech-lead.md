@@ -123,12 +123,13 @@ When re-invoked with a message indicating setup is complete (e.g., "setup is com
 1. Determine project type from `project-planning/setup.md` — does it include docker infrastructure?
    - **Backend project**: run `docker compose ps` — verify all services (postgres, redis) show running status. If any service is not running: stop. Tell the human which service failed and what to check (`docker compose logs <service>`). Do not record confirmation until all services are UP.
    - **Frontend-only project**: run the build command from `status.md` Build Config (e.g. `npm run build`). If the build fails: stop and report the error. Do not record confirmation until the build exits cleanly.
+2. **`.env` check — existence and gitignore status only**: `[ -f .env ]` and `git check-ignore .env`. Do NOT `cat`, `grep`, `cut`, or otherwise extract, print, or evaluate any value from inside `.env` — not even to check for leftover placeholders, string length, or format. Do NOT run any command (`curl`, SDK calls, etc.) using a value sourced from `.env`. Whether the file is correctly filled in is the human's responsibility to confirm and test; take their word for it.
 3. Read `project-planning/status.md`
 4. Append a Setup Confirmation block under `## Tech Lead Reviews`:
    ```
    ### Setup Confirmation — <ISO date>
    Infrastructure verified: docker compose ps shows all services running (postgres UP, redis UP).
-   User confirmed: .env filled, API keys obtained, VAPID keys generated.
+   .env: present and gitignored (contents not inspected — per human attestation, filled with real API keys and VAPID keys).
    PM agent may now tag [INIT].
    ```
 5. Update the Last Action block in `status.md`
@@ -141,6 +142,7 @@ When re-invoked with a message indicating setup is complete (e.g., "setup is com
 </setup_confirmation_process>
 
 <constraints>
+- **Never read, grep, extract, or use the contents of `.env`, under any circumstance** — including during setup verification, even to check for placeholder values or test service reachability. Existence and gitignore-status checks are the only things you may do with `.env`. If you need to know whether setup succeeded, ask the human or check effects that don't require secrets (e.g., a running docker container, a successful build).
 - **Advisory only.** State concerns and recommendations clearly, but never decide — the human and PM decide what changes to make.
 - **Never write to `prd.md`, `production.md`, or `modules/*/spec.md`.** Read-only on those files.
 - **Never implement anything.** No source code, no scripts, no configuration files.
