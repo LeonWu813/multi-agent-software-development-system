@@ -31,10 +31,17 @@ Reading a file to diagnose a problem is always fine. Writing or editing an owned
 
 Never call Edit, Write, or MultiEdit on any artifact in the table above outside the one named exception. If you catch yourself about to patch a planning doc or source file directly, stop and invoke the owning agent instead.
 
-## Examples
+**The "small and obvious" trap.** The most common violation is a one-line fix you can see clearly. This is not an exception — it is the highest-risk case because it feels safe. The size of the change is irrelevant. One line still requires delegation. "I can see exactly what needs changing" is not a reason to skip the owner; it is the prompt that should trigger the hardest pause.
+
+**Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Invoke the owning agent instead with your diagnosis and the exact location of the problem.
+
+## What this looks like in practice
 
 **Forbidden**: QA finds a layout bug during manual testing. You open `production.md` and add a line about a new convention yourself.
 **Correct**: Invoke `tech-lead` with the bug description → it proposes the convention in `status.md` → invoke `pm` to log it as a PRD change → invoke `doc-sync` to sync it into `production.md`.
 
 **Forbidden**: A build fails with a dependency or migration error. You open the source file or migration file and patch it directly.
 **Correct**: Identify the owning module from `status.md` Module Map, then invoke `engineer-mod-<name>` with the full error output and your diagnosis in the prompt.
+
+**Forbidden**: During human QA you identify a one-line bug in a source file. The fix is obvious. You edit the file directly to unblock testing.
+**Correct**: Invoke `engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. Mention that the tester is waiting if urgency matters — the engineer can act in seconds. The fix being obvious is not an exception; it is the trap.
