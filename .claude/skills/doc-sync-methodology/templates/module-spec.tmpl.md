@@ -1,3 +1,5 @@
+<!-- owner: doc-sync | to change: invoke doc-sync — never edit this file directly -->
+
 **Last Synced from PRD Revision**: <fill in PRD revision number> | **Last Updated**: <date>
 
 ---

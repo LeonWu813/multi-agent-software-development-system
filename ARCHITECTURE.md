@@ -202,7 +202,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Need writing guidance → read `references/writing-standards.md`
   - Reviewing PRD quality → use quality checklist in SKILL.md
   - Updating existing PRD → follow change protocol in SKILL.md
-  - Scaffolding project directory → run `scripts/init-project.sh`
+  - Scaffolding project directory → run `scripts/init-project.sh` (also scaffolds root `CLAUDE.md` from `templates/CLAUDE.tmpl.md` with Coordinator Instructions)
   - Identifying what not to do / catching PRD mistakes → read `references/anti-patterns.md`
 - Quality checklist (stays in SKILL.md since it's used every time):
   - Every section present and non-empty
@@ -247,15 +247,22 @@ SKILL.md uses semantic XML tags, not markdown headings:
 - Missing non-goals: failing to explicitly exclude things stakeholders might assume are in scope (e.g., not stating that i18n is out of scope when the product name sounds global, or not stating that offline support is excluded for a mobile-first product)
 - Architecture Overview boundary: the Architecture Overview may reference technologies named in the Tech Stack section (e.g., labeling a component as "PostgreSQL" or "Claude API") because the section describes *what communicates with what*. However, it must not introduce library names, SDK references, or configuration details that aren't in the Tech Stack — those are implementation details that belong in `production.md`
 
+#### templates/CLAUDE.tmpl.md
+- Coordinator Instructions: defines the default Claude Code session (not any `.claude/agents/*` subagent) as a delegator with no independent write scope
+- Contains the ownership table (which agent owns which artifact and how to invoke it), the hard no-direct-edit rule, and forbidden/correct examples
+- Scaffolded to `<project-root>/CLAUDE.md` by `init-project.sh` — auto-loaded into every default session opened at that root
+- If a `CLAUDE.md` already exists at project root, `init-project.sh` does not overwrite it — it prints a note telling the human to merge the Coordinator Instructions section manually
+
 #### scripts/init-project.sh
 - Creates the `project-planning/` folder structure:
   - `project-planning/prd.md` (copied from template)
   - `project-planning/status.md` (from status template — includes Last Action, Current Phase, Phase Plan, Build Config, PM Updates, Tech Lead Reviews, Sync Reports, Decisions, Module Map, Checkpoint History, and Skill Recommendations sections — all empty at scaffold time. Engineering Progress and QA Results are module-level and are NOT in this file)
   - `project-planning/modules/` (empty directory)
   - `project-planning/retrospective/` (empty directory)
+- Also copies `templates/CLAUDE.tmpl.md` to `<project-root>/CLAUDE.md` (skipped, with a warning, if one already exists)
 - Idempotent — safe to run if some dirs already exist
 - Takes project root path as argument
-- Includes defensive check: verifies `templates/prd.tmpl.md` exists at the resolved skill path before copying — exits with a clear error if not found (guards against symlink or relocation issues)
+- Includes defensive check: verifies `templates/prd.tmpl.md` and `templates/CLAUDE.tmpl.md` exist at the resolved skill path before copying — exits with a clear error if not found (guards against symlink or relocation issues)
 
 ### doc-sync-methodology
 
@@ -516,6 +523,8 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | `.claude/agents/*` | ❌ No access | ✅ Write (engineer-mod-*.md + qa-mod-*.md only) | ❌ No access | ❌ No access | ❌ No access | 🔒 Read |
 | `retrospective/*` | ❌ No access | ❌ No access | ❌ No access | ❌ No access | ❌ No access | ✅ Write |
 
+**Coordinator** (the default Claude Code session — not any `.claude/agents/*` subagent): ❌ No access to any row above. It reads freely to diagnose, but every write goes through the owning agent, per the ownership table in the project's root `CLAUDE.md` (scaffolded by `init-project.sh`, see prd-format skill). The sole exception is `.claude/skills/*` and non-generated `.claude/agents/*.md`, which the coordinator may create/edit itself, but only on explicit human instruction following a reviewed Retrospective proposal — see Project-Level Skill Creation Workflow.
+
 ---
 
 ## File Structure
@@ -536,12 +545,13 @@ SKILL.md uses semantic XML tags, not markdown headings:
 │   ├── prd-format/
 │   │   ├── SKILL.md                               # Router + principles + quality checklist
 │   │   ├── templates/
-│   │   │   └── prd.tmpl.md                        # Blank PRD skeleton
+│   │   │   ├── prd.tmpl.md                        # Blank PRD skeleton
+│   │   │   └── CLAUDE.tmpl.md                     # Coordinator Instructions — scaffolded to project root
 │   │   ├── references/
 │   │   │   ├── writing-standards.md               # Detailed writing guidance + examples
 │   │   │   └── anti-patterns.md                   # Common mistakes with corrections
 │   │   └── scripts/
-│   │       └── init-project.sh                    # Scaffolds project-planning/ directory
+│   │       └── init-project.sh                    # Scaffolds project-planning/ directory + root CLAUDE.md
 │   ├── doc-sync-methodology/
 │   │   ├── SKILL.md                               # Router + mapping rules + principles
 │   │   ├── workflows/
@@ -574,6 +584,9 @@ SKILL.md uses semantic XML tags, not markdown headings:
 ├── hooks/
 │   └── handoff.sh                                 # Stop/SubagentStop hook for handoffs
 └── hooks.json                                     # Hook registration
+
+CLAUDE.md                                           # Created by init-project.sh from CLAUDE.tmpl.md — Coordinator
+                                                     # Instructions (ownership rules); auto-loaded by every default session
 
 project-planning/                                   # Created by PM via init-project.sh
 ├── prd.md                                          # Single source of truth — only PM writes
@@ -875,36 +888,37 @@ Complete list of files to create, in order:
 |---|---|---|
 | 1 | `.claude/skills/prd-format/SKILL.md` | Router + principles + quality checklist + change protocol |
 | 2 | `.claude/skills/prd-format/templates/prd.tmpl.md` | Blank PRD skeleton with placeholder text |
-| 3 | `.claude/skills/prd-format/references/writing-standards.md` | Detailed writing guidance with good/bad examples |
-| 4 | `.claude/skills/prd-format/references/anti-patterns.md` | Common PRD mistakes with corrections |
-| 5 | `.claude/skills/prd-format/scripts/init-project.sh` | Scaffolds project-planning/ directory |
-| 6 | `.claude/skills/doc-sync-methodology/SKILL.md` | Router + mapping rules + principles |
-| 7 | `.claude/skills/doc-sync-methodology/workflows/initial-sync.md` | First sync step-by-step |
-| 8 | `.claude/skills/doc-sync-methodology/workflows/delta-sync.md` | Change propagation step-by-step |
-| 9 | `.claude/skills/doc-sync-methodology/templates/production.tmpl.md` | Structure for production.md |
-| 10 | `.claude/skills/doc-sync-methodology/templates/module-spec.tmpl.md` | Structure for module specs |
-| 11 | `.claude/skills/doc-sync-methodology/references/translation-rules.md` | Integrity guardrails with examples |
-| 12 | `.claude/skills/doc-sync-methodology/scripts/verify-sync.sh` | Automated sync verification |
-| 13 | `.claude/skills/coding-conventions/SKILL.md` | Default conventions + routing |
-| 14 | `.claude/skills/coding-conventions/references/style-examples.md` | Before/after code examples |
-| 15 | `.claude/skills/engineer-checklist/SKILL.md` | Checklist items + process |
-| 16 | `.claude/skills/engineer-checklist/scripts/self-check.sh` | Automated pre-QA checks |
-| 17 | `.claude/skills/qa-checklist/SKILL.md` | Checklist + routing |
-| 18 | `.claude/skills/qa-checklist/workflows/functional-test.md` | First-time verification procedure |
-| 19 | `.claude/skills/qa-checklist/workflows/regression-test.md` | Re-verification after bug fix |
-| 20 | `.claude/skills/qa-checklist/scripts/run-qa.sh` | Automated test runner + reporter |
-| 21 | `.claude/skills/qa-checklist/references/common-failure-patterns.md` | Known gotchas (living doc) |
+| 3 | `.claude/skills/prd-format/templates/CLAUDE.tmpl.md` | Coordinator Instructions (ownership rules) scaffolded to project root |
+| 4 | `.claude/skills/prd-format/references/writing-standards.md` | Detailed writing guidance with good/bad examples |
+| 5 | `.claude/skills/prd-format/references/anti-patterns.md` | Common PRD mistakes with corrections |
+| 6 | `.claude/skills/prd-format/scripts/init-project.sh` | Scaffolds project-planning/ directory + root CLAUDE.md |
+| 7 | `.claude/skills/doc-sync-methodology/SKILL.md` | Router + mapping rules + principles |
+| 8 | `.claude/skills/doc-sync-methodology/workflows/initial-sync.md` | First sync step-by-step |
+| 9 | `.claude/skills/doc-sync-methodology/workflows/delta-sync.md` | Change propagation step-by-step |
+| 10 | `.claude/skills/doc-sync-methodology/templates/production.tmpl.md` | Structure for production.md |
+| 11 | `.claude/skills/doc-sync-methodology/templates/module-spec.tmpl.md` | Structure for module specs |
+| 12 | `.claude/skills/doc-sync-methodology/references/translation-rules.md` | Integrity guardrails with examples |
+| 13 | `.claude/skills/doc-sync-methodology/scripts/verify-sync.sh` | Automated sync verification |
+| 14 | `.claude/skills/coding-conventions/SKILL.md` | Default conventions + routing |
+| 15 | `.claude/skills/coding-conventions/references/style-examples.md` | Before/after code examples |
+| 16 | `.claude/skills/engineer-checklist/SKILL.md` | Checklist items + process |
+| 17 | `.claude/skills/engineer-checklist/scripts/self-check.sh` | Automated pre-QA checks |
+| 18 | `.claude/skills/qa-checklist/SKILL.md` | Checklist + routing |
+| 19 | `.claude/skills/qa-checklist/workflows/functional-test.md` | First-time verification procedure |
+| 20 | `.claude/skills/qa-checklist/workflows/regression-test.md` | Re-verification after bug fix |
+| 21 | `.claude/skills/qa-checklist/scripts/run-qa.sh` | Automated test runner + reporter |
+| 22 | `.claude/skills/qa-checklist/references/common-failure-patterns.md` | Known gotchas (living doc) |
 
 ### Agents (create second — they reference skills)
 
 | # | File | Description |
 |---|---|---|
-| 22 | `.claude/agents/pm.md` | PM agent definition |
-| 23 | `.claude/agents/doc-sync.md` | Doc-Sync agent definition |
-| 24 | `.claude/agents/tech-lead.md` | Tech Lead agent definition |
-| 25 | `.claude/agents/retrospective.md` | Retrospective agent definition |
-| 26 | `.claude/agents/templates/engineer.md` | Engineer base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
-| 27 | `.claude/agents/templates/qa.md` | QA base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
+| 23 | `.claude/agents/pm.md` | PM agent definition |
+| 24 | `.claude/agents/doc-sync.md` | Doc-Sync agent definition |
+| 25 | `.claude/agents/tech-lead.md` | Tech Lead agent definition |
+| 26 | `.claude/agents/retrospective.md` | Retrospective agent definition |
+| 27 | `.claude/agents/templates/engineer.md` | Engineer base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
+| 28 | `.claude/agents/templates/qa.md` | QA base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
 
 > **Note**: Per-module engineer and QA agent wrappers (`engineer-mod-<name>.md`, `qa-mod-<name>.md`) are generated dynamically by Doc-Sync during each sync — they are not manually created files and are not included in this static manifest.
 
@@ -912,10 +926,10 @@ Complete list of files to create, in order:
 
 | # | File | Description |
 |---|---|---|
-| 28 | `.claude/hooks/handoff.sh` | Stop/SubagentStop handoff hook |
-| 29 | `.claude/hooks.json` | Hook registration |
+| 29 | `.claude/hooks/handoff.sh` | Stop/SubagentStop handoff hook |
+| 30 | `.claude/hooks.json` | Hook registration |
 
-**Total: 29 files**
+**Total: 30 files**
 
 ---
 

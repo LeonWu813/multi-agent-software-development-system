@@ -10,9 +10,16 @@ set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE="$SKILL_DIR/templates/prd.tmpl.md"
+CLAUDE_TEMPLATE="$SKILL_DIR/templates/CLAUDE.tmpl.md"
 
 if [[ ! -f "$TEMPLATE" ]]; then
   echo "ERROR: Template not found at $TEMPLATE" >&2
+  echo "       Ensure the prd-format skill is fully installed before running this script." >&2
+  exit 1
+fi
+
+if [[ ! -f "$CLAUDE_TEMPLATE" ]]; then
+  echo "ERROR: Template not found at $CLAUDE_TEMPLATE" >&2
   echo "       Ensure the prd-format skill is fully installed before running this script." >&2
   exit 1
 fi
@@ -58,6 +65,21 @@ if [[ ! -f "$PRD_DEST" ]]; then
   created "$PRD_DEST"
 else
   skipped "$PRD_DEST"
+fi
+
+# ---------------------------------------------------------------------------
+# Copy CLAUDE.md from template (skip if already exists — never overwrite a
+# project's existing CLAUDE.md; if one exists, tell the human to merge by hand)
+# ---------------------------------------------------------------------------
+CLAUDE_DEST="$PROJECT_ROOT/CLAUDE.md"
+if [[ ! -f "$CLAUDE_DEST" ]]; then
+  cp "$CLAUDE_TEMPLATE" "$CLAUDE_DEST"
+  created "$CLAUDE_DEST"
+else
+  skipped "$CLAUDE_DEST"
+  echo "  NOTE: $CLAUDE_DEST already exists and was not modified. Manually merge the" >&2
+  echo "        Coordinator Instructions section from $CLAUDE_TEMPLATE so ownership" >&2
+  echo "        rules are enforced in this project." >&2
 fi
 
 # ---------------------------------------------------------------------------
@@ -137,5 +159,7 @@ echo "  1. Open $PRD_DEST and fill in every section."
 echo "  2. Mark unresolved items with [DECISION NEEDED: <description>]."
 echo "  3. Review the completed draft against references/anti-patterns.md."
 echo "  4. Run the quality checklist in SKILL.md before handoff."
+echo "  5. $CLAUDE_DEST was scaffolded with Coordinator Instructions (ownership"
+echo "     rules for planning docs and source code) — keep this section intact."
 
 exit 0
