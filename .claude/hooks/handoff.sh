@@ -42,7 +42,10 @@ case "$AGENT" in
             *)          NEXT="claude --agent doc-sync" ;;
         esac ;;
     tech-lead)
-        NEXT="Complete setup.md steps, confirm with user → claude --agent pm → claude --agent doc-sync" ;;
+        case "$MODE" in
+            integration-review) NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name>. Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)" ;;
+            *)                  NEXT="Complete setup.md steps, confirm with user → claude --agent pm → claude --agent doc-sync" ;;
+        esac ;;
     doc-sync)
         NEXT="See Phase Plan in project-planning/status.md → claude --agent engineer-mod-<name>" ;;
     engineer-mod-*)
@@ -54,12 +57,19 @@ case "$AGENT" in
         esac ;;
     qa-mod-*)
         SLUG="${AGENT#qa-mod-}"
-        case "$RESULT" in
-            success)    NEXT="See Phase Plan for next module — or: claude --agent pm  (phase complete)" ;;
-            bugs-found) NEXT="claude --agent engineer-mod-$SLUG  # fix bugs in QA Results" ;;
-            spec-issue) NEXT="claude --agent pm  # spec issue — PRD update needed" ;;
-            *)          NEXT="Check QA Results in project-planning/modules/mod-*/status.md" ;;
-        esac ;;
+        if [ "$MODE" = "integration-fix-verify" ]; then
+            case "$RESULT" in
+                success) NEXT="Human verifies the fix, then: claude --agent tech-lead  # confirm and close the integration-review item" ;;
+                *)       NEXT="claude --agent engineer-mod-$SLUG  # integration-review item still not resolved" ;;
+            esac
+        else
+            case "$RESULT" in
+                success)    NEXT="See Phase Plan for next module — or, if this was the last module in the phase: claude --agent tech-lead  (integration & optimization review)" ;;
+                bugs-found) NEXT="claude --agent engineer-mod-$SLUG  # fix bugs in QA Results" ;;
+                spec-issue) NEXT="claude --agent pm  # spec issue — PRD update needed" ;;
+                *)          NEXT="Check QA Results in project-planning/modules/mod-*/status.md" ;;
+            esac
+        fi ;;
     retrospective)
         NEXT="Review project-planning/retrospective/proposed-changes.md" ;;
     *)

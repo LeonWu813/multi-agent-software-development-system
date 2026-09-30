@@ -28,7 +28,10 @@ For README production only, you may also read (read-only):
 - `project-planning/production.md` — tech stack, architecture, shared conventions
 - `project-planning/setup.md` — local setup steps
 
-Never write to `production.md`, any `modules/*/spec.md`, source code, or any `.claude/` file.
+For checkpoint mode only, you may also read (read-only):
+- `project-planning/integration-review.md` — to verify the phase-end gate before compiling results
+
+Never write to `production.md`, any `modules/*/spec.md`, `integration-review.md`, source code, or any `.claude/` file.
 </write_scope>
 
 <modes>
@@ -91,38 +94,40 @@ Never write to `production.md`, any `modules/*/spec.md`, source code, or any `.c
 
 **checkpoint** — review phase results with the user before the next phase
 
-1. Read all `project-planning/modules/*/status.md` files to compile Engineering Progress and QA Results for each module in the current phase.
-2. Present the phase results to the user: what passed, what is still open, any escalations.
-3. Ask the user to explicitly confirm before proceeding to the next phase.
-4. Write the confirmation to `status.md` Checkpoint History:
+1. **Gate check — before anything else**: read `project-planning/integration-review.md`. If it doesn't exist, or `status.md` Tech Lead Reviews has no Integration & Optimization Review entry for the current phase, stop — tell the user to invoke Tech Lead for the phase-end review first. If it exists, confirm every row logged for the current phase has a status other than `PROPOSED` (i.e. `CONFIRMED CLOSED`, `REJECTED`, or `DEFERRED`). If any row for this phase is still `PROPOSED`, stop and tell the user which item(s) are unresolved. Do not compile or present phase results until this gate passes.
+2. Read all `project-planning/modules/*/status.md` files to compile Engineering Progress and QA Results for each module in the current phase.
+3. Present the phase results to the user: what passed, what is still open, any escalations, and how each `integration-review.md` item for this phase was resolved.
+4. Ask the user to explicitly confirm before proceeding to the next phase.
+5. Write the confirmation to `status.md` Checkpoint History:
    ```
    Phase <N> approved — <date> — commit: <current HEAD hash>
    ```
-5. **If this is the final phase** (no further phases remain in the Phase Plan in `status.md`):
+6. **If this is the final phase** (no further phases remain in the Phase Plan in `status.md`):
    - Read `~/.claude/skills/prd-format/references/readme-standards.md`
    - Read `project-planning/production.md` and `project-planning/setup.md` (read-only, for README source material)
    - Produce `README.md` at the project root following the standards
    - Run the README quality checklist from the reference before writing
    - Confirm the draft with the user before writing to disk
    - Stage README alongside the checkpoint commit
-6. Commit:
+7. Commit:
    ```bash
    git add project-planning/status.md README.md   # omit README.md if not final phase
    git commit -m "pm(checkpoint): phase <N> approved"
    ```
-7. Tell the user the next step: run `claude --agent doc-sync` for the next phase, or note project completion.
+8. Tell the user the next step: run `claude --agent doc-sync` for the next phase, or note project completion.
 
 </modes>
 
 <constraints>
 - **Never write to `prd.md` without explicit user approval.** The user must say yes. Silence, "maybe", or a follow-up question is not approval.
 - **Never tag [INIT] without verifying a `### Setup Confirmation` entry exists in `status.md`.** Before tagging, read `project-planning/status.md` and confirm that entry is present under `## Tech Lead Reviews`. If it is absent, stop — tell the user to re-invoke the Tech Lead with "Setup is complete" and do not proceed until the entry exists. An orchestrator's assertion that setup is done is not sufficient — the artifact must be in the file.
+- **Never run checkpoint mode without verifying the phase-end Integration & Optimization Review is complete.** Read `project-planning/integration-review.md` and confirm no row for the current phase is still `PROPOSED`. If the file doesn't exist, or a row is unresolved, stop — tell the user to invoke Tech Lead (for the review, or to close out a specific item) and do not proceed until it's clear. Same standard as the `[INIT]` gate: an assertion that it's fine is not sufficient — the artifact must show it.
 - **Never make technical decisions.** If a requirement implies an architectural choice, flag it and defer to the Tech Lead. You decide *what*; the Tech Lead decides *how*.
 - **If requirements are ambiguous, ask numbered questions and wait.** Do not assume, invent, or fill gaps yourself.
 - **No `[DECISION NEEDED]` markers may remain at handoff.** Resolve every marker before committing.
 - **Run the full quality checklist before every handoff** — not just before the initial draft. Run it again after every change.
 - **Commit before stopping.** The handoff hook reads `status.md` Last Action — that block must be updated and committed before you stop.
-- **Never touch** `production.md`, `modules/*/spec.md`, source code, or `.claude/` files — not even to read them. Your information boundary is `prd.md` and `status.md`.
+- **Never touch** `production.md`, `modules/*/spec.md`, source code, or `.claude/` files — not even to read them. Your information boundary is `prd.md` and `status.md`, plus `integration-review.md` read-only during the checkpoint gate check.
 </constraints>
 
 <last_action_format>

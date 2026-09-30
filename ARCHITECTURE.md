@@ -477,6 +477,50 @@ SKILL.md uses semantic XML tags, not markdown headings:
 
 ---
 
+### integration-review
+
+- **Location**: `.claude/skills/integration-review/`
+- **Used By**: Tech Lead
+- **Purpose**: Cross-module conflict, information-leak, and optimization review — run once per phase, after all modules in that phase pass QA, before PM's checkpoint for that phase
+
+#### SKILL.md (router + principles)
+- Essential principles: advisory only (findings are proposals, never implemented by Tech Lead), Concerns/Recommendations split mirrors Tech Lead's existing review format, leakage checks go beyond the database (caches, logs, exports, background jobs, shared config), every finding needs a specific location and concrete failure scenario, findings that imply a requirements change escalate to PM instead of being tracked here
+- Routing:
+  - First review for a phase → follow `workflows/phase-review.md`
+  - Re-invoked to close out an approved, fixed item → follow `workflows/confirm-fix.md`
+  - Need the conflict/leak checklist → read `references/cross-module-checklist.md`
+  - Deciding if something is a worthwhile optimization → read `references/optimization-criteria.md`
+  - `integration-review.md` doesn't exist yet → copy `templates/integration-review.tmpl.md`
+  - Automated first-pass scan → run `scripts/scan-integration.sh`
+
+#### workflows/phase-review.md
+- Step-by-step for the first review of a phase: read every module in the phase in full, run `scripts/scan-integration.sh`, apply both reference checklists, create `integration-review.md` from template if missing, log one row per finding (or an explicit "no issues found" note), write a summary pointer to `status.md` Tech Lead Reviews, commit
+
+#### workflows/confirm-fix.md
+- Step-by-step for closing out an item: only proceed if status is `HUMAN VERIFIED`; re-check the original failure scenario against current code; set `CONFIRMED CLOSED` if resolved, or bounce back to `APPROVED` with a note if not; commit
+
+#### templates/integration-review.tmpl.md
+- Structure for `project-planning/integration-review.md`: status legend, and a findings table (ID, Phase, Category, Description, Location, Tech Lead Rationale & Trade-offs, Status, Assigned Module, Notes)
+- Status lifecycle: `PROPOSED` → `APPROVED` / `REJECTED` / `DEFERRED` → `IN PROGRESS` → `FIXED – AWAITING QA` → `QA VERIFIED` → `HUMAN VERIFIED` → `CONFIRMED CLOSED`
+- Ownership split by status, same pattern as `modules/*/status.md`: Tech Lead owns `PROPOSED`/`APPROVED`/`REJECTED`/`DEFERRED`/`CONFIRMED CLOSED`; Engineer owns `IN PROGRESS`/`FIXED – AWAITING QA` on rows assigned to it; QA owns `QA VERIFIED`; human verification (outside any agent) moves `QA VERIFIED` → `HUMAN VERIFIED`
+
+#### references/cross-module-checklist.md
+- Living document, same pattern as `qa-checklist/references/common-failure-patterns.md`
+- Conflicts: shared route/config/symbol collisions, migration ordering conflicts, divergent use of the same shared dependency, Shared Conventions drift, unimplemented cross-module Integration Points
+- Leakage: data access boundary bypasses, cache key scoping, logs exposing another module's sensitive fields, exports/reports not filtered to authorization, background jobs not re-validating context, shared config/secret namespace collisions
+
+#### references/optimization-criteria.md
+- Criteria a proposal must pass before being logged: visible only from the whole-system view (not catchable by a single module's own QA), has a concrete trade-off (not just a preference), doesn't change user-facing behavior, has a clear owner
+- Explicit non-goals: style preferences, anything a single module's cycle would already catch, speculative suggestions, anything that changes product behavior rather than how it's built
+
+#### scripts/scan-integration.sh
+- Automated first-pass scan, explicitly a lead list rather than a verdict — every hit still needs Tech Lead's manual judgment
+- Reads module directories from `status.md` Module Map
+- Checks: migration filename/prefix collisions across common migration directory names, Integration Points file references that don't resolve to an actual file, duplicate route/endpoint string literals across module source directories (heuristic grep, tech-stack agnostic)
+- Always exits 0 — never fails the build; this is advisory tooling, not a gate
+
+---
+
 ## Hooks
 
 ### handoff.sh
@@ -501,9 +545,14 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | PM (change) | PRD updated mid-project | `✅ PM updated PRD. Next: claude --agent doc-sync (Consider claude --agent tech-lead first if this change has architectural impact.)` |
 | Doc-Sync | Sync complete | `✅ Doc-Sync complete. Review sync report in status.md. Next: claude --agent engineer-mod-[module-name]` |
 | Engineer | Implementation + self-check done | `✅ Engineer completed [module-name]. Self-check logged to modules/[module-name]/status.md. Next: claude --agent qa-mod-[module-name]` |
-| QA (pass) | Module passed all checks | `✅ QA passed [module-name]. Next: claude --agent pm (Or claude --agent engineer-mod-[next-module] if more modules remain in this phase.)` |
+| QA (pass, more modules remain in phase) | Module passed all checks | `✅ QA passed [module-name]. Next: claude --agent engineer-mod-[next-module]` |
+| QA (pass, last module in phase) | All modules in phase now pass | `✅ QA passed [module-name] — all modules in this phase pass. Next: claude --agent tech-lead for the phase-end integration & optimization review` |
 | QA (bugs) | Bugs found | `⚠️ QA found bugs in [module-name]. See modules/[module-name]/status.md. Next: claude --agent engineer-mod-[module-name]` |
 | QA (spec issue) | Spec-level problem | `⚠️ QA found a spec-level issue in [module-name]. See modules/[module-name]/status.md. Next: claude --agent pm` |
+| QA (integration-review fix verified) | Item moved to QA VERIFIED | `✅ QA verified [ID]. Next: human verifies, then claude --agent tech-lead to confirm and close it out.` |
+| Tech Lead (integration-review, issues found) | Findings logged | `⚠️ Tech Lead logged N concerns, N recommendations in integration-review.md. Review and approve/reject/defer each, then route approved items to their engineer.` |
+| Tech Lead (integration-review, clean) | No issues found | `✅ Tech Lead found no integration issues for phase [N]. Next: claude --agent pm for checkpoint` |
+| Tech Lead (confirm-fix, last item closed) | All items for phase resolved | `✅ Tech Lead confirmed [ID] closed — no PROPOSED items remain for phase [N]. Next: claude --agent pm for checkpoint` |
 | Retrospective | Proposals written | `✅ Retrospective complete. Review proposals in project-planning/retrospective/proposed-changes.md. Apply approved changes manually.` |
 
 ---
@@ -518,6 +567,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | `modules/*/status.md` (module-level) | 🔒 Read (checkpoint) | ✅ Write (creates during sync) | 🔒 Read (on-demand) | ✅ Write (assigned only) | ✅ Write (assigned only) | 🔒 Read |
 | `project-planning/setup.md` | ❌ No access | ❌ No access | ✅ Write (init only) | 🔒 Read | 🔒 Read | 🔒 Read |
 | `modules/*/spec.md` | ❌ No access | ✅ Write | ❌ No access | 🔒 Read (assigned only) | 🔒 Read (assigned only) | 🔒 Read |
+| `project-planning/integration-review.md` | 🔒 Read (checkpoint gate only) | ❌ No access | ✅ Write (create + PROPOSED/APPROVED/REJECTED/DEFERRED/CONFIRMED CLOSED) | ✅ Write (IN PROGRESS/FIXED – AWAITING QA, assigned rows only) | ✅ Write (QA VERIFIED, assigned rows only) | ❌ No access |
 | Source code | ❌ No access | ❌ No access | ❌ No access | ✅ Write | 🔒 Read | ❌ No access |
 | `.claude/skills/*` | ❌ No access | ❌ No access | ❌ No access | ❌ No access | ❌ No access | 🔒 Read |
 | `.claude/agents/*` | ❌ No access | ✅ Write (engineer-mod-*.md + qa-mod-*.md only) | ❌ No access | ❌ No access | ❌ No access | 🔒 Read |
@@ -572,15 +622,27 @@ SKILL.md uses semantic XML tags, not markdown headings:
 │   │   ├── SKILL.md                               # Checklist items + process
 │   │   └── scripts/
 │   │       └── self-check.sh                      # Automated pre-QA checks
-│   └── qa-checklist/
-│       ├── SKILL.md                               # Checklist + routing
+│   ├── qa-checklist/
+│   │   ├── SKILL.md                               # Checklist + routing
+│   │   ├── workflows/
+│   │   │   ├── functional-test.md                 # First-time verification procedure
+│   │   │   └── regression-test.md                 # Re-verification after bug fix
+│   │   ├── scripts/
+│   │   │   └── run-qa.sh                          # Automated test runner + reporter
+│   │   └── references/
+│   │       └── common-failure-patterns.md         # Known gotchas (living doc)
+│   └── integration-review/
+│       ├── SKILL.md                               # Router + principles — Tech Lead's phase-end review rulebook
 │       ├── workflows/
-│       │   ├── functional-test.md                 # First-time verification procedure
-│       │   └── regression-test.md                 # Re-verification after bug fix
-│       ├── scripts/
-│       │   └── run-qa.sh                          # Automated test runner + reporter
-│       └── references/
-│           └── common-failure-patterns.md         # Known gotchas (living doc)
+│       │   ├── phase-review.md                    # First-time review procedure for a phase
+│       │   └── confirm-fix.md                     # Closing out a HUMAN VERIFIED item
+│       ├── templates/
+│       │   └── integration-review.tmpl.md         # Structure for project-planning/integration-review.md
+│       ├── references/
+│       │   ├── cross-module-checklist.md          # Conflict + leak checklist (living doc)
+│       │   └── optimization-criteria.md           # What qualifies as a worthwhile optimization proposal
+│       └── scripts/
+│           └── scan-integration.sh                # Automated first-pass scan (lead list, not a verdict)
 ├── hooks/
 │   └── handoff.sh                                 # Stop/SubagentStop hook for handoffs
 └── hooks.json                                     # Hook registration
@@ -592,6 +654,8 @@ project-planning/                                   # Created by PM via init-pro
 ├── prd.md                                          # Single source of truth — only PM writes
 ├── production.md                                   # Shared tech context — only Doc-Sync writes
 ├── status.md                                       # Coordination hub — multiple agents write sections
+├── integration-review.md                           # Created by Tech Lead on first phase-end review — cross-module
+│                                                    # conflict/leak/optimization findings; PM's checkpoint gate reads it
 ├── modules/
 │   ├── module-1/
 │   │   ├── spec.md                                 # Only Doc-Sync writes, Engineer + QA read
@@ -675,8 +739,19 @@ QA [module-1]  (via claude --agent qa-mod-module-1)
  ↓ logs results to modules/module-1/status.md, updates Last Action in project-level status.md
  ↓ commits: git commit -m "qa-mod-module-1: pass"
  [Stop → hook depends on pass/fail]
- [HUMAN REVIEWS RESULTS]
+ [HUMAN REVIEWS RESULTS — once every module in the phase has passed QA:]
+ [HUMAN RUNS: claude --agent tech-lead]
+Tech Lead [integration-review]  (via claude --agent tech-lead)
+ ↓ reads every module in the phase, runs scan-integration.sh
+ ↓ applies cross-module-checklist.md + optimization-criteria.md
+ ↓ logs findings to project-planning/integration-review.md (or "no issues found")
+ ↓ commits: git commit -m "tech-lead(integration-review): phase 1 — N concerns, N recommendations"
+ [Stop → hook prints: "Review findings; approve/reject/defer each item, then re-invoke tech-lead to confirm fixes"]
+ [HUMAN DECIDES per item → approved items: engineer-mod-X → qa-mod-X → human verifies → claude --agent tech-lead confirms CONFIRMED CLOSED]
+ [Once every item for the phase is resolved (no PROPOSED rows remain):]
+ [HUMAN RUNS: claude --agent pm]
 PM [checkpoint]  (via claude --agent pm)
+ ↓ gate check: reads integration-review.md, confirms no PROPOSED rows remain for this phase
  ↓ reads all modules/*/status.md files to compile phase results
  ↓ reviews phase results with user, confirms before next phase
  ↓ records git commit hash in Checkpoint History
@@ -700,7 +775,7 @@ Doc-Sync
  ↓ commits: git commit -m "doc-sync(<trivial|delta>): <summary>"
  [Stop → hook prints: "claude --agent engineer-mod-[module-name]"]
  [HUMAN REVIEWS → RUNS: claude --agent engineer-mod-[module-name]]
-claude --agent engineer-mod-X → claude --agent qa-mod-X → claude --agent pm [checkpoint]
+claude --agent engineer-mod-X → claude --agent qa-mod-X → claude --agent tech-lead [integration-review, once the phase's modules all pass QA] → claude --agent pm [checkpoint]
 ```
 
 ### On-Demand Tech Lead (anytime)
@@ -908,17 +983,24 @@ Complete list of files to create, in order:
 | 20 | `.claude/skills/qa-checklist/workflows/regression-test.md` | Re-verification after bug fix |
 | 21 | `.claude/skills/qa-checklist/scripts/run-qa.sh` | Automated test runner + reporter |
 | 22 | `.claude/skills/qa-checklist/references/common-failure-patterns.md` | Known gotchas (living doc) |
+| 23 | `.claude/skills/integration-review/SKILL.md` | Router + principles for the phase-end review |
+| 24 | `.claude/skills/integration-review/workflows/phase-review.md` | First-time review procedure for a phase |
+| 25 | `.claude/skills/integration-review/workflows/confirm-fix.md` | Closing out a HUMAN VERIFIED item |
+| 26 | `.claude/skills/integration-review/templates/integration-review.tmpl.md` | Structure for project-planning/integration-review.md |
+| 27 | `.claude/skills/integration-review/references/cross-module-checklist.md` | Conflict + leak checklist (living doc) |
+| 28 | `.claude/skills/integration-review/references/optimization-criteria.md` | Optimization proposal criteria |
+| 29 | `.claude/skills/integration-review/scripts/scan-integration.sh` | Automated first-pass scan (lead list, not a verdict) |
 
 ### Agents (create second — they reference skills)
 
 | # | File | Description |
 |---|---|---|
-| 23 | `.claude/agents/pm.md` | PM agent definition |
-| 24 | `.claude/agents/doc-sync.md` | Doc-Sync agent definition |
-| 25 | `.claude/agents/tech-lead.md` | Tech Lead agent definition |
-| 26 | `.claude/agents/retrospective.md` | Retrospective agent definition |
-| 27 | `.claude/agents/templates/engineer.md` | Engineer base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
-| 28 | `.claude/agents/templates/qa.md` | QA base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
+| 30 | `.claude/agents/pm.md` | PM agent definition |
+| 31 | `.claude/agents/doc-sync.md` | Doc-Sync agent definition |
+| 32 | `.claude/agents/tech-lead.md` | Tech Lead agent definition |
+| 33 | `.claude/agents/retrospective.md` | Retrospective agent definition |
+| 34 | `.claude/agents/templates/engineer.md` | Engineer base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
+| 35 | `.claude/agents/templates/qa.md` | QA base template — not directly invokable; Doc-Sync reads this to generate per-module wrappers |
 
 > **Note**: Per-module engineer and QA agent wrappers (`engineer-mod-<name>.md`, `qa-mod-<name>.md`) are generated dynamically by Doc-Sync during each sync — they are not manually created files and are not included in this static manifest.
 
@@ -926,10 +1008,10 @@ Complete list of files to create, in order:
 
 | # | File | Description |
 |---|---|---|
-| 29 | `.claude/hooks/handoff.sh` | Stop/SubagentStop handoff hook |
-| 30 | `.claude/hooks.json` | Hook registration |
+| 36 | `.claude/hooks/handoff.sh` | Stop/SubagentStop handoff hook |
+| 37 | `.claude/hooks.json` | Hook registration |
 
-**Total: 30 files**
+**Total: 37 files**
 
 ---
 
