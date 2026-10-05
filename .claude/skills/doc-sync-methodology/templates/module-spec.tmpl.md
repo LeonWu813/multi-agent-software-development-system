@@ -74,3 +74,55 @@
      Duplicate IDs across module specs indicate an error in the source PRD. -->
 
 - AC-NNN: 
+
+## Integration Points
+
+<!-- Populated by Doc-Sync FROM AN EXPLICIT PRD REQUIREMENT ONLY — never inferred from a
+     Dependencies field alone. A `Dependencies: MOD-X` entry with no concrete integration
+     requirement in the PRD is not enough to fill in this section (see prd-format's
+     "Implicit Dependencies" anti-pattern). If a module declares a dependency but the PRD
+     states no concrete integration detail, write:
+     [AMBIGUITY: MOD-X dependency declared but no concrete integration requirement stated in
+     the PRD — needs PM clarification before engineering starts]
+     and log it to status.md Sync Reports, same as any other AMBIGUITY.
+
+     This section covers two distinct cases — cover both if both apply, write "none" if neither applies:
+
+     CASE 1 — Embedding: this module exposes a component designed to be rendered from
+     within another module's screen.
+     For each embedding integration, name:
+     1. The file in the other module that must be modified
+     2. The exact component or prop to add
+     3. Which module's engineer owns the change (default: upstream module's engineer implements;
+        downstream module's engineer confirms it is done before QA handoff)
+     4. The acceptance criterion that gates QA handoff
+
+     Example:
+     ### Integration with MOD-002 (Gym Directory) — Embedding
+     - **File to modify:** `src/modules/mod-gym-directory/screens/GymDetailScreen.tsx`
+     - **Change required:** Render `<RouteNavigator gymId={gym.id} gymName={gym.name} session={session} onBackToGym={onBack} />` at the bottom of the screen
+     - **Owner:** engineer-mod-gym-directory implements; engineer-mod-route-catalog confirms before QA handoff
+     - **AC:** AC-NNN: GymDetailScreen renders RouteNavigator with gymId, gymName, session, and onBackToGym
+
+     CASE 2 — Conditional mounting: this module's component is only reached under a specific
+     prop, flag, or mode passed by another module's screen — meaning a different component or
+     code path could run instead depending on that condition. Name the exact condition so the
+     assigned engineer never has to discover it by reading the other module's code.
+     For each conditional-mounting integration, name:
+     1. The parent file (in either this module or another) that decides which component mounts
+     2. The exact condition (prop name, flag, mode value) that makes THIS module's component the live path
+     3. What the alternate path is, if one exists, and whether it is still expected to run
+     4. The acceptance criterion that gates QA handoff — must assert the live path, not just that the component works in isolation
+
+     Example:
+     ### Integration with MOD-006 (Route Detail) — Conditional Mounting
+     - **Parent file:** `src/modules/mod-route-detail/screens/RouteDetailScreen.tsx`
+     - **Live condition:** `RouteDetailScreen` always passes `onRegisterUploadLauncher`, which routes
+       mounting to `BetaVideoSection`, not `BetaVideoUploader`
+     - **Alternate path:** `BetaVideoUploader` only mounts when `onRegisterUploadLauncher` is absent —
+       not expected to run in the current flow
+     - **AC:** AC-NNN: Uploading from the route detail screen exercises `BetaVideoSection`'s upload path,
+       not `BetaVideoUploader`'s
+-->
+
+none

@@ -134,3 +134,80 @@ When multiple `@RestControllerAdvice` beans exist (typically one global catch-al
 **Fix:** Annotate every module-specific exception handler with `@Order(Ordered.HIGHEST_PRECEDENCE)`. Annotate the global catch-all with `@Order(Ordered.LOWEST_PRECEDENCE)`.
 
 **Test approach:** For every exception type that should return a non-500 status code, trigger it against a running server and verify the exact HTTP status. Unit tests with `@WebMvcTest` slices may not reproduce this — full Spring context wiring (`spring-boot:run` or integration test with `@SpringBootTest`) is required to see the bean ordering resolution.
+
+---
+
+## 10. Mock Hides a Production Mount-Context Incompatibility
+
+A test mocks an entire framework module that provides hooks, context, or dependency injection (navigation, a state store, a DI container, theming, i18n, a data-fetching client) in a way that makes the hook or context work in the test environment. In production, the component is mounted in a context that cannot actually provide what the hook needs (e.g. no provider ancestor in a keep-alive or background-rendered view). The incompatibility is invisible in CI; it surfaces only when the component is actually mounted the way production mounts it.
+
+**Identifying condition:** a component uses a hook or context that requires a specific provider/ancestor in the render tree, AND the component is (or could be) rendered in production without that ancestor present, AND the test mocks the framework module rather than reflecting the real mount tree.
+
+**What to look for:**
+- Tests that mock an entire framework module (e.g. a navigation library, a state-management provider, a DI container) — ask: "does this mock make a hook or context pass that would fail if the component were mounted without its required provider ancestor?"
+- Any component rendered via a keep-alive, background, or conditionally-mounted pattern (e.g. `display:none`/`display:flex` toggling instead of unmount/remount) — these commonly lack ancestors that a normally-routed screen would have.
+- A mock setup that makes a hook "just work" without the surrounding infrastructure that hook depends on at runtime.
+
+**Verification approach for QA:**
+1. For every component tested with a mocked framework module, identify its actual production mount context — which parent mounts it, and in what configuration.
+2. Ask: "if the mock were removed, would this test still pass?" If no, ask: "does the real production mount context provide what the hook needs?" If that's also no, the mock is hiding a real bug — fail it and route to Engineer to fix the incompatibility, not to improve the mock.
+3. Include an explicit step in the human test script: exercise the component in its real mount context (e.g. navigate away and back for a keep-alive screen) and confirm no crash occurs on device.
+
+**Impact:** a runtime crash that is completely invisible to the automated suite, surfacing only on-device or in a context-accurate manual test.
+
+---
+
+## 11. Wrong-Layer Diagnosis — Fixing One Layer When the Bug Lives in Another
+
+A bug is correctly observed and reported, but the root-cause layer is misidentified. The fix targets a different layer than the one that actually causes the problem. Every subsequent Engineer cycle is wasted because the correct layer is never touched, and the same symptom resurfaces after each "fix."
+
+**Identifying condition:** a failure has multiple plausible layers in its call path (e.g. input capture → processing → storage → output rendering), and a fix is proposed or already attempted at one layer without evidence — a real observation, not an assumption — confirming that layer actually produces the bad output.
+
+**What to look for:**
+- A fix is applied to one layer, the same symptom reappears after verification, and a second fix is attempted at a different layer. Repeat failure on the same symptom after a targeted fix is a strong signal the wrong layer was fixed first.
+- An AC or bug report that encodes a runtime behavior claim about a third-party library, OS subsystem, or external service — without a captured real-world result confirming that claim at the specific layer it's attributed to.
+- A test suite that only covers the layer that was changed, leaving the actual runtime layer where the symptom occurs completely untested (e.g. the real failure is in a layer the test harness can't exercise at all).
+
+**Verification approach for QA — before routing a failure to Engineer:**
+1. Identify all layers in the call path for the failing behavior.
+2. For each layer, ask: "can this layer be the cause, and is there observable evidence at this layer?" Evidence means a real, inspected output — not a mocked test assertion.
+3. State the layer your FAIL entry targets explicitly, with the evidence: "FAIL AC-XXX: symptom observed at [layer] — [specific evidence]. [Other layer] not implicated — [why]."
+4. If you cannot identify which layer owns the bug because it involves un-mockable OS, device, or third-party behavior, flag this as a diagnosis blocker and escalate rather than guessing which layer to route to Engineer.
+
+**Test approach:** for any AC that encodes a claim about third-party or OS runtime behavior, require a documented real-world verification result as part of accepting that AC as settled — a green automated test is not evidence of behavior at a layer the test harness can't reach.
+
+---
+
+## 12. Mock-Fidelity Gap: Option-Gated API Return Fields
+
+A mock for an external API function returns all fields unconditionally, regardless of the arguments the call site actually passes. This lets a test verify downstream if-field-then-do logic while hiding whether the field would actually be populated at runtime for the arguments used in production. Invisible to compilation (the field is typically optional, not missing) and to unit tests (the mock always provides it).
+
+**Identifying condition:** a feature depends on a specific field in an external API's return value, and that field is populated only when a particular option or argument is passed — but the mock returns it regardless of what's passed.
+
+**What to look for in code review:**
+- Find the call site for the external API and compare its actual arguments against the mock's return shape for the same function.
+- If the mock returns a field unconditionally but the real API only populates it when an option is passed, check whether the call site actually passes that option.
+- Check the installed library's type definition file (the actual installed version's `.d.ts`, not public documentation describing a possibly different version) for which fields are truly unconditional.
+
+**Test approach:** confirm the mock reflects the real return shape for the arguments actually used at the call site — not just the arguments used in the test. A guard whose field dependency is masked by an overly generous mock will pass every automated check and fail silently at runtime.
+
+**Impact:** a runtime failure (a guard that silently never fires, a cryptic downstream error) despite all compilation and unit tests passing — found only during manual verification with the real API.
+
+---
+
+## 13. Untyped Query DSL — Invisible to Both the Compiler and the Mock
+
+A query is constructed as a string or dynamically-assembled DSL (a raw join/embed string, a dynamically-built ORM query, a hand-assembled GraphQL document) whose validity is determined entirely by the backend at request time. Neither TypeScript nor a mocked client can catch a malformed or rejected query — the mock returns canned data without the real backend ever parsing the string. A query that's broken in exactly this way can pass every unit test and compilation check and still be completely non-functional at runtime.
+
+**Identifying condition:** a service function builds a query via string concatenation or a DSL builder whose output isn't statically validated against the real backend schema, AND the test for that function mocks the client rather than exercising a real or local backend instance.
+
+**What to look for in code review:**
+- Find every such query construction in the module's service files. For each one, ask: was this exact query exercised against a real or local backend instance before the AC was marked done?
+- Check the module's `status.md` Engineering Progress entry for the AC that introduced or modified the query — a conforming entry records the query actually run (SQL snippet, request URL, or equivalent) as evidence the check happened. No record means the verification may not have occurred.
+- Check whether the service function logs the raw backend error before throwing a user-facing message — without this, the actual rejection reason is invisible in application logs, making diagnosis far harder.
+
+**What QA cannot catch via code review or unit tests alone:** whether a specific query shape is accepted by the real backend version in use — this is only determinable by running the query for real. Document it as an explicit manual verification step in the test script.
+
+**Test approach:** for any AC that adds or modifies this kind of query, include an explicit step in the human test script — exercise the feature, observe the data actually rendered, and confirm it matches the expected shape. A generic "failed to load" error where populated data is expected is the runtime symptom of a rejected query. If the service logs the raw error, check application logs during the test run for the specific rejection reason.
+
+**Impact:** the function is completely non-functional — failing on every call — yet the full automated pipeline (compilation, unit tests, code review) passes green. The failure appears only in manual verification against a real backend.

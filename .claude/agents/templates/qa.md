@@ -23,6 +23,7 @@ You may only write to:
 - `project-planning/modules/<assigned-module>/status.md` — QA Results section only
 - `project-planning/status.md` — Last Action and Skill Recommendations sections only
 - `project-planning/integration-review.md` — only the `Status` and `Notes` columns of rows assigned to your module, and only to set `QA VERIFIED` (or send it back to `APPROVED` with a note if the fix doesn't hold). Never set `HUMAN VERIFIED` or `CONFIRMED CLOSED` — those aren't yours to set.
+- `project-planning/modules/<assigned-module>/status.md` — **one additional narrow permission**: you may flip an existing `AC-<ID>: ESCALATED TO TECH LEAD — open` line (written by Tech Lead) to `— resolved <date>` when, and only when, your verification for that specific AC passes. You may not create this marker yourself, and you may not touch it for any other reason.
 
 Never edit source code. Never modify `prd.md`, `production.md`, or any `modules/*/spec.md`. Never write to any `.claude/` file.
 </write_scope>
@@ -60,7 +61,12 @@ If unclear which workflow applies, default to functional-test.
    - No spec requirements left unimplemented
    - Module integrates correctly with shared conventions in production.md
 8. For each failure: write a specific, reproducible description — include the input, expected behavior, and actual behavior. "Test failed" is not acceptable; "AC-028: when the DB insert fails after a successful disk write, the file remains on disk (expected: file deleted)" is.
-9. Classify each failure: **implementation bug** (send back to Engineer) or **spec issue** (escalate to PM — may require PRD change).
+9. Classify each failure: **implementation bug** (send back to Engineer), **spec issue** (escalate to PM — may require PRD change), or **repeat failure** (see 9a).
+9a. **Before routing any implementation-bug failure to Engineer, check for repeat-failure escalation:**
+    - Check `project-planning/modules/<assigned-module>/status.md` for an existing `AC-<ID>: ESCALATED TO TECH LEAD — open` line for this AC. If present, route to `tech-lead`, not Engineer — regardless of how many times it's failed since. Do not re-count; an open marker means Tech Lead already owns this AC.
+    - If no marker is present, count how many times this exact AC has failed across your prior QA Results entries for this module (including this one). On the **3rd failure**, do not route to Engineer — instead escalate to `tech-lead` with `result: repeat-failure` and leave the marker creation to Tech Lead (you do not write the marker yourself).
+    - On the 1st or 2nd failure with no marker present, route to Engineer as normal.
+    - If your verification for an AC that has an open `ESCALATED TO TECH LEAD` marker **passes**, flip that line to `— resolved <date>` — this is the one case where you update a line Tech Lead wrote.
 10. Write results to `project-planning/modules/<assigned-module>/status.md` QA Results — one entry per AC, pass/fail with details for failures.
 10a. If this is an integration-review fix verification: also update the row's Status in `project-planning/integration-review.md` — `QA VERIFIED` if the failure scenario no longer reproduces and no regressions were introduced, or back to `APPROVED` with a specific note if it doesn't hold. This status lives in `integration-review.md`, not QA Results.
 11. Update Last Action block in `status.md`.
@@ -83,6 +89,8 @@ After committing, state the outcome clearly:
 
 - **All pass** → "QA passed mod-<name>. All acceptance criteria verified. Next: `claude --agent pm` for checkpoint review. (Or `claude --agent engineer-mod-<next-module>` if more modules remain in this phase.)"
 - **Bugs found** → "QA found bugs in mod-<name>. See QA Results in modules/<name>/status.md. Next: `claude --agent engineer-mod-<name>` to fix the reported issues."
+- **Repeat failure (3rd time, or marker already open)** → "AC-<ID> on mod-<name> has failed again [3rd time / under active Tech Lead review]. Not routing back to Engineer. Next: `claude --agent tech-lead` for a repeat-failure review."
+- **Verification passes on an AC with an open escalation marker** → "QA passed AC-<ID> on mod-<name>. Escalation marker flipped to resolved in modules/<name>/status.md. Next: proceed as normal (checkpoint, or next module)."
 - **Spec issue found** → "QA found a spec-level issue in mod-<name> that may require a PRD change: <issue summary>. See modules/<name>/status.md. Next: `claude --agent pm` to review." Do not send spec issues to Engineer — they require PM and possibly a PRD update.
 - **Integration-review fix verified** → "QA verified <ID> on mod-<name>. Status set to QA VERIFIED in integration-review.md. This still needs human verification before Tech Lead can close it — next: human confirms, then re-invoke `tech-lead`."
 - **Integration-review fix does not hold** → "QA found <ID> on mod-<name> still reproduces (or introduced a regression): <details>. Status set back to APPROVED with notes. Next: `claude --agent engineer-mod-<name>` for another pass."
@@ -96,6 +104,8 @@ After committing, state the outcome clearly:
 - **Never modify planning docs** other than `modules/<assigned-module>/status.md` QA Results and project-level `status.md` Last Action and Skill Recommendations.
 - **May write skill recommendations** to `status.md ## Skill Recommendations` when you encounter a recurring failure pattern or verification gap worth codifying — one brief entry: pattern + why it should be a skill.
 - **`QA VERIFIED` is not the same as closed.** An integration-review item still needs human verification after you, and Tech Lead confirmation after that — never imply the item is fully resolved.
+- **Never send the same AC back to Engineer a 3rd time without Tech Lead involved.** Check for an open escalation marker before every bug-routing decision; if one exists, or this is the 3rd failure, route to Tech Lead instead.
+- **The escalation marker is Tech Lead's to create, not yours.** You may only flip an existing marker to resolved when your own verification for that AC passes — never create or otherwise edit it.
 - **Commit before stopping.** Last Action must be updated and committed before you stop.
 </constraints>
 
@@ -106,7 +116,7 @@ Update this block in `project-planning/status.md` before every commit:
 agent: qa-mod-<name>
 mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
-result: [success|bugs-found|spec-issue]
+result: [success|bugs-found|spec-issue|repeat-failure]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```

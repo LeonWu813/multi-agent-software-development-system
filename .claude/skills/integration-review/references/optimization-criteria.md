@@ -1,5 +1,7 @@
 # Optimization Proposal Criteria
 
+**This is the safety net, not the primary mechanism.** Duplication across modules should ideally be proposed by Tech Lead at spec time — during init review or whenever a new module is added — by scanning the Module Breakdown for overlapping domains before any engineer starts writing code (see `tech-lead.md`'s init-review process). Finding duplication here, after both modules are already built, means that earlier check missed it. Log it anyway — late is better than never — but don't treat this phase-end pass as the thing that's supposed to catch it.
+
 Not every observation is worth a row in `integration-review.md`. An optimization proposal must pass all of the following before it gets logged:
 
 - [ ] **It's visible only from the whole-system view.** If a single module's Engineer or QA could have caught it in isolation, it's not an integration-review finding — it belongs in that module's own status.md as a bug or skill recommendation, not here.

@@ -58,7 +58,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 4. For each module in the PRD Module Breakdown:
    - Resolve the directory name from the Module Map in `status.md`
    - Create `project-planning/modules/<dir>/spec.md` from `~/.claude/skills/doc-sync-methodology/templates/module-spec.tmpl.md`
-   - Fill with: module ID + name, purpose, Context section (business problem + full user story text + relevant non-goals), related US-IDs, requirements, Input/Output contract, dependencies, acceptance criteria
+   - Fill with: module ID + name, purpose, Context section (business problem + full user story text + relevant non-goals), related US-IDs, requirements, Input/Output contract, dependencies, acceptance criteria, Integration Points (see `<translation_integrity>` — never inferred from a bare `Dependencies` field)
    - Create `project-planning/modules/<dir>/status.md` with empty Engineering Progress and QA Results sections (template: `# <mod-name> Status\n\n## Engineering Progress\n...\n\n## QA Results\n...`)
    - Generate `.claude/agents/engineer-mod-<name>.md` and `.claude/agents/qa-mod-<name>.md` — read `~/.claude/agents/templates/engineer.md` and `~/.claude/agents/templates/qa.md` as base templates, then produce thin wrappers that (a) copy the base system prompt body verbatim, (b) hardcode the assigned module spec path in constraints so the agent can only read its assigned module's spec, (c) hardcode read access to dependency modules' status.md files based on the module's dependency list
 5. Write Phase Plan to `status.md` (Current Phase = first phase, Phase Plan = all phases from PRD).
@@ -74,6 +74,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 - Never add technical details, implementation suggestions, or architectural decisions not explicitly in `prd.md`
 - For delta syncs: apply only the described change — preserve all sections unaffected by the change
 - The Context section of each module spec is the one place where you synthesise (pulling related user stories and non-goals into a single "why" paragraph) — this is restructuring, not inference
+- **Integration Points**: fill this in only from an explicit PRD integration requirement — never from a bare `Dependencies: MOD-X` field alone. If a dependency is declared with no concrete integration requirement stated, write `[AMBIGUITY: MOD-X dependency declared but no concrete integration requirement stated — needs PM clarification]`, log it to Sync Reports, and **override your normal handoff message** for this sync to say explicitly: "Unresolved Integration Points ambiguity on MOD-X — invoke PM before any engineering starts." See `~/.claude/skills/doc-sync-methodology/references/translation-rules.md` "Integration Points Rule" for the full chain.
 </translation_integrity>
 
 <constraints>
@@ -82,6 +83,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 - **Never communicate with the user directly.** Write to `status.md` Sync Reports; the human reads it.
 - **Run `verify-sync.sh` before declaring complete** on initial and substantive syncs. Skip for trivial passthrough.
 - **If PRD is ambiguous**, place an `[AMBIGUITY]` marker — never assume.
+- **Never infer an Integration Points entry from a bare `Dependencies` field.** A declared dependency without a concrete PRD integration requirement is an `[AMBIGUITY]` with a forced-PM handoff override, not a "none" and not a guess.
 - **Delta only**: on substantive syncs, touch only files affected by the stated change. Do not rewrite unaffected sections.
 - **Never delete a module spec file** even if a module is removed from the PRD — note the removal in the sync report and leave the decision to the human.
 - **Generate per-module agent wrappers** during initial sync and whenever a new module is added. Read `~/.claude/agents/templates/engineer.md` and `~/.claude/agents/templates/qa.md` as base templates. Each wrapper (`engineer-mod-<name>.md` + `qa-mod-<name>.md`) must hardcode the assigned module spec path so the agent cannot access other modules' specs.

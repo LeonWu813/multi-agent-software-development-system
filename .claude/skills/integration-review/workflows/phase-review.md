@@ -3,15 +3,15 @@
 Run this the first time Tech Lead is invoked for a phase — i.e. all modules in the current phase have `PASS` in their `status.md` QA Results, and PM has not yet run checkpoint mode for that phase.
 
 1. Read `project-planning/status.md` — confirm the current phase and which modules belong to it (Module Map + Phase Plan).
-2. Read every module's `spec.md` and `status.md` for modules in the current phase, in full. Do not sample — a conflict between two modules is invisible if you only read one of them.
+2. Read every module's `spec.md` and `status.md` for modules in the **current phase**, in full. Do not sample — a conflict between two modules is invisible if you only read one of them. Conflict and leak checks (step 5) are scoped to these modules only — new interactions only exist between modules that are new to each other.
 3. Read `project-planning/production.md` Shared Conventions and Tech Stack — this is the baseline every module should already follow; deviations between modules are a common source of conflicts.
 4. Run the automated first pass:
    ```bash
    bash ~/.claude/skills/integration-review/scripts/scan-integration.sh <project-root>
    ```
-   Treat its output as a lead list, not a verdict — every hit still needs manual judgment before becoming a finding.
-5. Work through `references/cross-module-checklist.md` for conflicts and information leakage.
-6. Work through `references/optimization-criteria.md` for optimization opportunities. Skip anything that fails the criteria there — do not log speculative or stylistic suggestions.
+   Treat its output as a lead list, not a verdict — every hit still needs manual judgment before becoming a finding. This script scans for duplication candidates across **all modules shipped so far**, not just the current phase — see step 6.
+5. Work through `references/cross-module-checklist.md` for conflicts and information leakage — current-phase modules only.
+6. Work through `references/optimization-criteria.md` for optimization opportunities — **this check is not phase-scoped**. Duplication has no phase boundary: a module shipped two phases ago can duplicate logic with a module in this phase just as easily as two modules in the same phase can. Read the Purpose + Tech Stack lines (cheap — a few lines each) from every module's `spec.md` shipped so far, not just the current phase, and only deep-read the full spec/code of modules the scan or the Purpose comparison flags as suspiciously similar. Skip anything that fails the criteria in `references/optimization-criteria.md` — do not log speculative or stylistic suggestions. Note: this reactive check is the safety net — most duplication should already have been proposed by Tech Lead at spec time, before engineering started (see the Module Breakdown review step in `tech-lead.md`'s init-review process). Finding something here suggests that earlier check missed it, not that this is the primary mechanism.
 7. If `project-planning/integration-review.md` does not exist yet, create it from `templates/integration-review.tmpl.md`.
 8. For each finding, append a row with: next available ID, category, description, specific location (file + line or component), your rationale and trade-offs, status `PROPOSED`, and the module(s) involved. Leave Assigned Module blank until a human approves it — Tech Lead does not assign work.
 9. If you find nothing, still write a row (or a single note) recording "No issues found — phase <N> reviewed <date>" so PM's checkpoint gate has something to find.

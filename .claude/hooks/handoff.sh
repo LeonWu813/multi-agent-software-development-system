@@ -43,8 +43,9 @@ case "$AGENT" in
         esac ;;
     tech-lead)
         case "$MODE" in
-            integration-review) NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name>. Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)" ;;
-            *)                  NEXT="Complete setup.md steps, confirm with user → claude --agent pm → claude --agent doc-sync" ;;
+            integration-review)     NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name>. Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)" ;;
+            repeat-failure-review)  NEXT="Review Tech Lead's diagnosis in status.md Tech Lead Reviews — route to claude --agent engineer-mod-<name> with the diagnosis in hand, or claude --agent pm if it requires a requirements change" ;;
+            *)                       NEXT="Complete setup.md steps, confirm with user → claude --agent pm → claude --agent doc-sync" ;;
         esac ;;
     doc-sync)
         NEXT="See Phase Plan in project-planning/status.md → claude --agent engineer-mod-<name>" ;;
@@ -64,10 +65,11 @@ case "$AGENT" in
             esac
         else
             case "$RESULT" in
-                success)    NEXT="See Phase Plan for next module — or, if this was the last module in the phase: claude --agent tech-lead  (integration & optimization review)" ;;
-                bugs-found) NEXT="claude --agent engineer-mod-$SLUG  # fix bugs in QA Results" ;;
-                spec-issue) NEXT="claude --agent pm  # spec issue — PRD update needed" ;;
-                *)          NEXT="Check QA Results in project-planning/modules/mod-*/status.md" ;;
+                success)        NEXT="See Phase Plan for next module — or, if this was the last module in the phase: claude --agent tech-lead  (integration & optimization review)" ;;
+                bugs-found)     NEXT="claude --agent engineer-mod-$SLUG  # fix bugs in QA Results" ;;
+                spec-issue)     NEXT="claude --agent pm  # spec issue — PRD update needed" ;;
+                repeat-failure) NEXT="claude --agent tech-lead  # same AC failed again — repeat-failure review, not another Engineer round" ;;
+                *)              NEXT="Check QA Results in project-planning/modules/mod-*/status.md" ;;
             esac
         fi ;;
     retrospective)

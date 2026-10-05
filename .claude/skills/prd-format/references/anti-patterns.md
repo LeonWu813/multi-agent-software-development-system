@@ -42,6 +42,26 @@ Dependencies: MOD-002 (Order Management — source of status-change events), MOD
 
 **Why it matters**: Undeclared dependencies cause integration failures that are discovered late in the development cycle, when they are most expensive to fix. They also make phasing impossible: if MOD-005 is scheduled for Phase 1 but MOD-002 is Phase 2, the phase plan is broken — but no one can see the conflict without the explicit dependency declaration.
 
+**A declared dependency is not the same as a specified integration.** Naming `MOD-002` in a `Dependencies` field only says the two modules are coupled — it does not say *what* needs to happen between them. If the dependency involves one module's component being rendered or invoked from within another module's screen or flow (including cases where a component is only reached under a specific prop, flag, or condition that could bypass a different implementation), the PRD must state the concrete integration as its own requirement — not leave it implied by the dependency field.
+
+**Bad** (dependency declared, integration left implicit):
+```markdown
+### MOD-003: Route Catalog
+Purpose: Lets a user browse and view climbing routes for a gym.
+Dependencies: MOD-002 (Gym Directory)
+```
+(This says MOD-003 depends on MOD-002 — but not that `RouteNavigator`, built in MOD-003, must actually be rendered inside MOD-002's `GymDetailScreen`. Both engineers can build their module correctly in isolation and the wiring still never happens.)
+
+**Good** (the integration itself is a named requirement):
+```markdown
+### MOD-003: Route Catalog
+Purpose: Lets a user browse and view climbing routes for a gym.
+Dependencies: MOD-002 (Gym Directory)
+
+**AC-040**: The system shall render the Route Catalog's navigator from within the Gym Directory's gym detail screen, giving the user a way to view a gym's routes without leaving the gym detail context.
+```
+This AC is what lets Doc-Sync carry a concrete "Integration Points" entry into both modules' specs — naming the exact file, the exact component, and the owning engineer — instead of each spec just repeating `Dependencies: MOD-002` and leaving the actual wiring to be discovered at QA time.
+
 ---
 
 ## 3. Vague Acceptance Criteria

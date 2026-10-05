@@ -81,5 +81,27 @@ if command -v grep >/dev/null 2>&1; then
 fi
 echo ""
 
+# ---------------------------------------------------------------------------
+# 5. Cross-phase duplication candidates — Purpose comparison across ALL modules
+#    (not just the current phase; duplication has no phase boundary)
+# ---------------------------------------------------------------------------
+echo "--- Module purposes (eyeball for overlapping domains — e.g. two modules both touching video/upload/auth) ---"
+for dir in $MODULE_DIRS; do
+  SPEC="$PROJECT_ROOT/project-planning/modules/$dir/spec.md"
+  [[ -f "$SPEC" ]] || continue
+  PURPOSE=$(awk '/^## Purpose/{flag=1; next} /^## /{flag=0} flag' "$SPEC" | grep -v '^<!--' | grep -v '^$' | head -1)
+  [[ -n "$PURPOSE" ]] && echo "  $dir: $PURPOSE"
+done
+echo ""
+
+echo "--- Possible duplicate component/function names across module source directories ---"
+if [[ -d "$PROJECT_ROOT/src" ]]; then
+  grep -rhoE "(export (default )?(function|const|class) )[A-Za-z0-9_]+" \
+    --include="*.ts" --include="*.tsx" --include="*.js" --include="*.py" \
+    "$PROJECT_ROOT/src" 2>/dev/null | \
+    sed -E 's/.*(function|const|class) //' | sort | uniq -c | sort -rn | awk '$1 > 1' | head -20 || true
+fi
+echo ""
+
 echo "=== Scan complete — treat every line above as a candidate, not a confirmed finding ==="
 exit 0

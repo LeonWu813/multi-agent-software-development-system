@@ -103,41 +103,47 @@ SKILL.md uses semantic XML tags, not markdown headings:
 - **File**: `.claude/agents/tech-lead.md`
 - **Single Responsibility**: Architectural advisory — evaluate feasibility, identify risks, recommend decisions
 - **Tools**: Read, Grep, Glob
-- **Write Scope**: `status.md` (Tech Lead review section) + `project-planning/setup.md` (init review only)
-- **Skills Used**: coding-conventions (reference)
-- **Invocation**: mandatory during PM `init` flow (first PRD), on-demand otherwise
-- **Input**: `prd.md` + `production.md` + project-level `status.md` + for on-demand blocker reviews, the relevant `modules/<mod>/status.md`
-- **Output**: Findings written to `status.md` (concerns, recommendations, approved/flagged items) + `setup.md` produced during init review
-- **Handoff**: Always returns to human. During init review: human completes setup.md, confirms setup done, then invokes PM to tag [INIT]. For other reviews: human decides whether to route findings to PM (for PRD changes) or directly to Engineer (for minor adjustments)
+- **Write Scope**: `status.md` (Tech Lead review section) + `project-planning/setup.md` (init review only) + `project-planning/integration-review.md` (create + own `PROPOSED`/`APPROVED`/`REJECTED`/`DEFERRED`/`CONFIRMED CLOSED` transitions) + `project-planning/modules/<mod>/status.md` (one narrow exception: a single repeat-failure escalation marker line, only while that AC is under active repeat-failure review — never anything else in a module's status.md)
+- **Skills Used**: coding-conventions (reference), integration-review (phase-end review + repeat-failure review)
+- **Invocation**: mandatory during PM `init` flow (first PRD), mandatory at the end of every phase (before PM checkpoint), on-demand otherwise
+- **Input**: `prd.md` + `production.md` + project-level `status.md` + `project-planning/integration-review.md` + for on-demand blocker/repeat-failure reviews, the relevant `modules/<mod>/status.md` and `spec.md`
+- **Output**: Findings written to `status.md` (concerns, recommendations, approved/flagged items, proposed shared components) + `setup.md` produced during init review + findings logged to `integration-review.md` during phase-end reviews
+- **Handoff**: Always returns to human. During init review: human completes setup.md, confirms setup done, then invokes PM to tag [INIT]. For other reviews: human decides whether to route findings to PM (for PRD changes), directly to Engineer (for minor adjustments or an approved integration-review item), or back to Tech Lead (repeat-failure review stays with Tech Lead until the AC resolves).
 - **When Invoked**:
   - Mandatory: during PM `init` flow (first PRD creation)
-  - On-demand: when human judges a change has architectural impact, when Engineer reports a cross-module blocker, when QA reports a pattern suggesting design problems
+  - Mandatory: phase-end Integration & Optimization Review, after every module in the current phase passes QA, before PM's checkpoint for that phase
+  - On-demand: when human judges a change has architectural impact, when Engineer reports a cross-module blocker, when QA reports a pattern suggesting design problems, when QA reports the same AC failing a 3rd time after two targeted Engineer fix attempts (repeat-failure review — Tech Lead stays the owner of that AC until it resolves, no re-counting after the first escalation)
+  - Re-invoked: to confirm and close an approved, fixed, `HUMAN VERIFIED` integration-review item
 - **Constraints**:
-  - Advisory only — never writes to `prd.md`, `production.md`, or `modules/*/spec.md`
+  - Advisory only — never writes to `prd.md`, `production.md`, or `modules/*/spec.md`; a proposal to merge or share components across modules is always a proposal, never a decision
   - Articulates recommendations clearly but lets PM/human decide
   - Does not implement anything
   - During init review: **always** produces `.gitignore` and `project-planning/setup.md` (full environment runbook covering prerequisites, dependencies, dev server, build, and lint/tests; ends with a Setup Confirmation instruction). Only produces `.env.example` and `docker-compose.yml` when the PRD includes backend infrastructure (postgres, redis, docker, or any server-side service) — frontend-only projects skip these and note so in `setup.md`. Asks user to complete all setup steps and confirm before handing back to PM.
+  - During init review (and whenever a module is added): scans the Module Breakdown for overlapping domains across modules and proactively proposes a shared `production.md` convention — the default, over restructuring modules — before engineering starts, rather than waiting for the phase-end review to catch duplication after the fact
+  - Every module in the phase must be read before a phase-end review is complete — no sampling
+  - On a repeat-failure review: requires real evidence of which layer caused the bug, never a guessed diagnosis; asks the human for a specific check if the evidence doesn't exist yet
   - May write skill recommendations to `status.md ## Skill Recommendations` when it identifies a recurring architectural pattern or convention that should be shared across modules — one brief entry: pattern + why it should be a skill
-  - Commits review findings (and setup.md on init) to git before stopping: `git add status.md project-planning/setup.md && git commit -m "tech-lead(review): <summary>"`
+  - Commits review findings (and setup.md on init, and integration-review.md on phase-end/repeat-failure reviews) to git before stopping: `git add status.md project-planning/setup.md && git commit -m "tech-lead(review): <summary>"`
 
 ### Engineer
 
 - **File**: `.claude/agents/engineer.md`
 - **Single Responsibility**: Implement one assigned module
 - **Tools**: Read, Write, Edit, Bash, Grep, Glob
-- **Write Scope**: Source code in working directory + `modules/<assigned-module>/status.md` (Engineering Progress section) + project-level `status.md` (Last Action block only). May read dependency modules' `modules/<dep>/status.md` to verify dependency QA status (read-only). The base `engineer.md` is a template; Doc-Sync generates a thin per-module wrapper (`engineer-mod-<name>.md`) for each module during sync — always invoke the wrapper, not the base agent.
+- **Write Scope**: Source code in working directory + `modules/<assigned-module>/status.md` (Engineering Progress section) + project-level `status.md` (Last Action block only) + `project-planning/integration-review.md` (`Status`/`Notes` on rows assigned to this module only, `IN PROGRESS`/`FIXED – AWAITING QA` only). May read dependency modules' `modules/<dep>/status.md` to verify dependency QA status (read-only). The base `engineer.md` is a template; Doc-Sync generates a thin per-module wrapper (`engineer-mod-<name>.md`) for each module during sync — always invoke the wrapper, not the base agent.
 - **Skills Used**: coding-conventions, engineer-checklist
 - **Invocation**: via `claude --agent engineer-mod-<name>` (per-module wrapper generated by Doc-Sync)
-- **Input**: `production.md` (read) + assigned `modules/module-X/spec.md` (read) + own `modules/<assigned-module>/status.md` (read/write)
+- **Input**: `production.md` (read) + assigned `modules/module-X/spec.md` (read) + own `modules/<assigned-module>/status.md` (read/write) + Tech Lead's diagnosis in project-level `status.md` when fixing an AC under an open repeat-failure escalation marker
 - **Output**: Working code + self-check results logged to `modules/<assigned-module>/status.md`
-- **Self-Check Process**: Run `engineer-checklist/scripts/self-check.sh` for automated checks, run integration tests (`npm run test:integration`), then manually verify judgment-based items from the checklist
+- **Self-Check Process**: Run `engineer-checklist/scripts/self-check.sh` for automated checks, run integration tests (`npm run test:integration`), then manually verify judgment-based items from the checklist — including conditional-mounting verification, mock-fidelity, layer-diagnosis, and impact-mapping items (see `engineer-checklist` skill)
 - **Handoff**: → QA (with code path + production.md + module spec)
 - **Constraints**:
-  - Only reads `production.md` and its assigned `modules/module-X/spec.md` — no access to `prd.md` or other module specs. May read dependency modules' `modules/<dep>/status.md` to check if dependencies passed QA.
+  - Only reads `production.md` and its assigned `modules/module-X/spec.md` — no access to `prd.md` or other module specs. May read dependency modules' `modules/<dep>/status.md` to check if dependencies passed QA. Never reads another module's source code — any cross-module mounting condition it needs must already be named in its own spec's Integration Points section.
   - If blocked by something outside module scope, writes blocker to `modules/<assigned-module>/status.md` and stops — does not improvise or work around
   - Never modifies planning docs (except `modules/<assigned-module>/status.md` for self-check results and blockers, and project-level `status.md` for the Last Action block only)
   - **Phase 1 only — pre-flight infrastructure check before writing any code**: verify `.env` exists (presence only, never read contents), database connection succeeds, and `UPLOAD_DIR` exists and is writable. If any check fails, stop and report to user — do not proceed to implementation
   - Runs self-check against engineer-checklist before declaring done
+  - If fixing an AC under an open repeat-failure escalation marker, implements per Tech Lead's diagnosis, not an independent theory
   - May write skill recommendations to `status.md ## Skill Recommendations` when it encounters a coding pattern, gotcha, or convention worth codifying — one brief entry: pattern + why it should be a skill
   - Commits all changes to git before stopping: `git add <module-source-files> modules/<name>/status.md project-planning/status.md && git commit -m "engineer-mod-<name>(<mode>): <summary>"`
 
@@ -146,23 +152,25 @@ SKILL.md uses semantic XML tags, not markdown headings:
 - **File**: `.claude/agents/qa.md`
 - **Single Responsibility**: Verify one module against its spec
 - **Tools**: Read, Bash, Grep, Glob
-- **Write Scope**: `modules/<assigned-module>/status.md` (QA results section) + project-level `status.md` (Last Action block only). The base `qa.md` is a template; Doc-Sync generates a thin per-module wrapper (`qa-mod-<name>.md`) for each module during sync — always invoke the wrapper, not the base agent.
+- **Write Scope**: `modules/<assigned-module>/status.md` (QA results section, plus the one narrow exception of flipping an existing Tech Lead-written repeat-failure escalation marker to resolved when its own verification passes) + project-level `status.md` (Last Action block only) + `project-planning/integration-review.md` (`QA VERIFIED` on rows assigned to this module only). The base `qa.md` is a template; Doc-Sync generates a thin per-module wrapper (`qa-mod-<name>.md`) for each module during sync — always invoke the wrapper, not the base agent.
 - **Skills Used**: qa-checklist
 - **Invocation**: via `claude --agent qa-mod-<name>` (per-module wrapper generated by Doc-Sync)
 - **Input**: `production.md` + `modules/module-X/spec.md` + engineer's code output + own `modules/<assigned-module>/status.md`
 - **Output**: Test results in `modules/<assigned-module>/status.md` (pass/fail + specific details)
 - **Workflow Selection**:
   - First-time verification: follow `qa-checklist/workflows/functional-test.md`
-  - Re-verification after bug fix: follow `qa-checklist/workflows/regression-test.md`
+  - Re-verification after bug fix, or an integration-review fix: follow `qa-checklist/workflows/regression-test.md`
 - **Testing Process**: Run `qa-checklist/scripts/run-qa.sh` for automated tests, then manually verify judgment-based items
 - **Handoff**:
-  - Pass → PM checkpoint
-  - Bugs found → Engineer (with specific failure descriptions in `status.md`)
+  - Pass → PM checkpoint (or Tech Lead's phase-end review, if this was the last module in the phase)
+  - Bugs found (1st/2nd failure on this AC) → Engineer (with specific failure descriptions in `status.md`)
+  - Same AC fails a 3rd time, or an escalation marker is already open → Tech Lead (repeat-failure review), not Engineer again
   - Spec ambiguity or spec-level issue → PM change flow (not Engineer — this may require PRD update)
 - **Constraints**:
   - Never edits source code
-  - Never modifies planning docs other than `modules/<assigned-module>/status.md` (QA results section) and project-level `status.md` (Last Action block only)
+  - Never modifies planning docs other than `modules/<assigned-module>/status.md` (QA results section, plus the narrow escalation-marker exception above) and project-level `status.md` (Last Action block only)
   - If a bug might be a spec problem rather than an implementation problem, escalates to PM rather than sending back to Engineer
+  - Checks for an open repeat-failure escalation marker, and counts prior failures on the same AC, before every bug-routing decision — never sends the same AC to Engineer a 3rd time independently
   - **Backend modules (MOD-001–003): real server required for PASS** — code inspection and unit tests alone are not sufficient. QA must start the server, hit real endpoints with curl and sample fixture files, and verify actual HTTP responses and database state
   - **MOD-004 (frontend): human checkpoint** — QA cannot verify a React UI via CLI. QA produces a written test script (what to navigate, click, and verify) and hands off to the user. QA does not declare PASS on ACs it cannot exercise in a browser
   - May write skill recommendations to `status.md ## Skill Recommendations` when it encounters a recurring failure pattern or verification gap worth codifying — one brief entry: pattern + why it should be a skill
@@ -244,6 +252,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 #### references/anti-patterns.md
 - Common PRD mistakes with concrete before/after examples
 - Combining what and how, implicit dependencies, vague acceptance criteria, scope bleed, orphan requirements, gold-plating specs
+- Implicit dependencies now also covers the "declared dependency is not a specified integration" case: a `Dependencies: MOD-X` field alone never justifies a concrete integration/conditional-mounting entry — that requires its own explicit PRD requirement, with a before/after example matching the `module-spec.tmpl.md` Integration Points section
 - Missing non-goals: failing to explicitly exclude things stakeholders might assume are in scope (e.g., not stating that i18n is out of scope when the product name sounds global, or not stating that offline support is excluded for a mobile-first product)
 - Architecture Overview boundary: the Architecture Overview may reference technologies named in the Tech Stack section (e.g., labeling a component as "PostgreSQL" or "Claude API") because the section describes *what communicates with what*. However, it must not introduce library names, SDK references, or configuration details that aren't in the Tech Stack — those are implementation details that belong in `production.md`
 
@@ -323,6 +332,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Input/Output Contract (from PRD module definition)
   - Dependencies (list of MOD-IDs this module depends on)
   - Acceptance Criteria (combined from PRD module and user story criteria)
+  - Integration Points (populated only from an explicit PRD integration requirement, never inferred from the Dependencies field — covers both component embedding and conditional mounting; see `references/translation-rules.md` "Integration Points Rule" for the `[AMBIGUITY]` + forced-PM-handoff fallback when the PRD doesn't specify one)
 
 #### references/translation-rules.md
 - Detailed integrity guardrails with examples:
@@ -331,6 +341,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - How to write `[AMBIGUITY]` markers: `[AMBIGUITY: PRD says "fast response" but doesn't specify a target — needs measurable threshold from PM]`
   - How to handle PRD contradictions: mark both locations with `[CONFLICT]` and log to status.md
   - Examples of acceptable restructuring vs. prohibited interpretation
+  - **Integration Points Rule**: fill from an explicit PRD integration requirement only, never from a bare `Dependencies` field; if a dependency has no stated integration detail, write `[AMBIGUITY: ...]` into the spec AND override the normal handoff message to force a PM invocation before any engineering starts — the one mapping rule with a forced-handoff exception
 
 #### scripts/verify-sync.sh
 - Automated self-verification script that checks:
@@ -391,6 +402,13 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - No files modified outside assigned module scope
 - Judgment-based items (verified manually by Engineer):
   - Every requirement in the module spec is implemented
+  - Integration Points: cross-module wiring tasks are implemented; conditional-mounting conditions (if named in the spec) are verified within the engineer's own module only — never by reading another module's source
+  - Integration tests mount the real production configuration for any AC with a UI entry point, not an isolated leaf component
+  - Mocks for framework hooks/Providers reflect whether the component is actually mounted with that ancestor in production
+  - Layer-diagnosis gate: state the observed layer and evidence before fixing a runtime bug; if it can't be confirmed, write a blocker listing each plausible layer as a hypothesis for human resolution — never guess
+  - Impact-map: before implementing a fix, note what else depends on the code being changed
+  - Mock-fidelity for option-gated external API fields: mocks must inspect call arguments and reflect the installed library's real contract, not return all fields unconditionally
+  - Untyped/unmockable query DSLs (raw embed strings, dynamic ORM queries, hand-built GraphQL) must be exercised against a real backend before done, with the verification recorded in status.md
   - Edge cases are handled (empty inputs, boundary values, error states)
   - No hardcoded values that should be configurable
   - Code follows conventions in coding-conventions skill and `production.md`
@@ -455,6 +473,8 @@ SKILL.md uses semantic XML tags, not markdown headings:
   4. Run `scripts/run-qa.sh`
   5. Focus extra attention on code adjacent to the fix
   6. Update `modules/module-X/status.md` QA Results
+- Also used for integration-review fix verification, substituting the assigned `integration-review.md` row for the QA Results entry
+- **Repeat-failure check before routing any implementation bug to Engineer**: check for an existing `ESCALATED TO TECH LEAD — open` marker for this AC, or count prior failures on it. An open marker, or a 3rd failure, routes to Tech Lead instead of Engineer — no re-count after the first escalation. A verification that passes on an AC with an open marker flips it to resolved.
 
 #### scripts/run-qa.sh
 - Automated test runner and report generator:
@@ -473,6 +493,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Async operations without proper error handling
   - Hardcoded values that should come from config
   - Missing input validation
+- Also includes (added via Retrospective proposals from real project incidents): mock hides a production mount-context incompatibility, wrong-layer diagnosis, mock-fidelity gap for option-gated API fields, and untyped/unmockable query DSLs — each with an identifying condition, a code-review procedure, and what QA cannot catch via review alone
 - Living document: primary target for Retrospective agent proposals — grows with project-specific patterns over time
 
 ---
@@ -495,6 +516,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 
 #### workflows/phase-review.md
 - Step-by-step for the first review of a phase: read every module in the phase in full, run `scripts/scan-integration.sh`, apply both reference checklists, create `integration-review.md` from template if missing, log one row per finding (or an explicit "no issues found" note), write a summary pointer to `status.md` Tech Lead Reviews, commit
+- **Scope split**: conflict/leak checks (`cross-module-checklist.md`) are scoped to the current phase's modules only — new interactions only exist between modules new to each other. The duplication check (`optimization-criteria.md`) is explicitly NOT phase-scoped — it compares lightweight Purpose/Tech Stack summaries across every module shipped so far, deep-reading only modules flagged as suspiciously similar, since duplication has no phase boundary
 
 #### workflows/confirm-fix.md
 - Step-by-step for closing out an item: only proceed if status is `HUMAN VERIFIED`; re-check the original failure scenario against current code; set `CONFIRMED CLOSED` if resolved, or bounce back to `APPROVED` with a note if not; commit
@@ -510,13 +532,14 @@ SKILL.md uses semantic XML tags, not markdown headings:
 - Leakage: data access boundary bypasses, cache key scoping, logs exposing another module's sensitive fields, exports/reports not filtered to authorization, background jobs not re-validating context, shared config/secret namespace collisions
 
 #### references/optimization-criteria.md
+- Opens by framing this as the safety net, not the primary mechanism — duplication should ideally be proposed by Tech Lead at spec time (init review or when a module is added), before engineering starts; see the Tech Lead "Overlapping modules" step
 - Criteria a proposal must pass before being logged: visible only from the whole-system view (not catchable by a single module's own QA), has a concrete trade-off (not just a preference), doesn't change user-facing behavior, has a clear owner
 - Explicit non-goals: style preferences, anything a single module's cycle would already catch, speculative suggestions, anything that changes product behavior rather than how it's built
 
 #### scripts/scan-integration.sh
 - Automated first-pass scan, explicitly a lead list rather than a verdict — every hit still needs Tech Lead's manual judgment
-- Reads module directories from `status.md` Module Map
-- Checks: migration filename/prefix collisions across common migration directory names, Integration Points file references that don't resolve to an actual file, duplicate route/endpoint string literals across module source directories (heuristic grep, tech-stack agnostic)
+- Reads module directories from `status.md` Module Map (all modules ever shipped, not phase-filtered — the Module Map has no phase concept of its own)
+- Checks: migration filename/prefix collisions across common migration directory names, Integration Points file references that don't resolve to an actual file, duplicate route/endpoint string literals across module source directories, module Purpose lines printed together for duplication eyeballing, duplicate exported component/function names across module source directories (all heuristic greps, tech-stack agnostic)
 - Always exits 0 — never fails the build; this is advisory tooling, not a gate
 
 ---
@@ -553,6 +576,8 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | Tech Lead (integration-review, issues found) | Findings logged | `⚠️ Tech Lead logged N concerns, N recommendations in integration-review.md. Review and approve/reject/defer each, then route approved items to their engineer.` |
 | Tech Lead (integration-review, clean) | No issues found | `✅ Tech Lead found no integration issues for phase [N]. Next: claude --agent pm for checkpoint` |
 | Tech Lead (confirm-fix, last item closed) | All items for phase resolved | `✅ Tech Lead confirmed [ID] closed — no PROPOSED items remain for phase [N]. Next: claude --agent pm for checkpoint` |
+| QA (repeat failure — 3rd time, or marker already open) | Same AC still failing | `⚠️ AC-[ID] on [module-name] failed again. Not routing to Engineer. Next: claude --agent tech-lead for a repeat-failure review.` |
+| Tech Lead (repeat-failure-review) | Diagnosis logged | `⚠️ Tech Lead diagnosed AC-[ID]. Next: claude --agent engineer-mod-[module-name] with the diagnosis, or claude --agent pm if it's a requirements change.` |
 | Retrospective | Proposals written | `✅ Retrospective complete. Review proposals in project-planning/retrospective/proposed-changes.md. Apply approved changes manually.` |
 
 ---
@@ -564,7 +589,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | `prd.md` | ✅ Write | 🔒 Read | 🔒 Read | ❌ No access | ❌ No access | 🔒 Read |
 | `production.md` | ❌ No access | ✅ Write | 🔒 Read | 🔒 Read | 🔒 Read | 🔒 Read |
 | `status.md` (project-level) | ✅ Write (PM sections) | ✅ Write (sync report) | ✅ Write (review section) | ✅ Write (Last Action only) | ✅ Write (Last Action only) | 🔒 Read |
-| `modules/*/status.md` (module-level) | 🔒 Read (checkpoint) | ✅ Write (creates during sync) | 🔒 Read (on-demand) | ✅ Write (assigned only) | ✅ Write (assigned only) | 🔒 Read |
+| `modules/*/status.md` (module-level) | 🔒 Read (checkpoint) | ✅ Write (creates during sync) | ✅ Write (one escalation-marker line only, repeat-failure review) | ✅ Write (assigned only) | ✅ Write (assigned only, plus flipping Tech Lead's marker to resolved) | 🔒 Read |
 | `project-planning/setup.md` | ❌ No access | ❌ No access | ✅ Write (init only) | 🔒 Read | 🔒 Read | 🔒 Read |
 | `modules/*/spec.md` | ❌ No access | ✅ Write | ❌ No access | 🔒 Read (assigned only) | 🔒 Read (assigned only) | 🔒 Read |
 | `project-planning/integration-review.md` | 🔒 Read (checkpoint gate only) | ❌ No access | ✅ Write (create + PROPOSED/APPROVED/REJECTED/DEFERRED/CONFIRMED CLOSED) | ✅ Write (IN PROGRESS/FIXED – AWAITING QA, assigned rows only) | ✅ Write (QA VERIFIED, assigned rows only) | ❌ No access |
@@ -794,23 +819,43 @@ Tech Lead
  └── PRD-level change → claude --agent pm [change mode]
 ```
 
+(A bug that has failed QA 3 times on the same AC follows a dedicated version of this, with Tech Lead staying the owner of that AC until it resolves — see `### Bug Fix Loop` below.)
+
 ### Bug Fix Loop
 
 ```
-QA finds bugs
+QA finds bugs (1st failure on this AC)
  ↓ logs specific failures to modules/module-X/status.md, updates Last Action in project-level status.md
  ↓ commits: git commit -m "qa-mod-module-X: fail — <summary>"
  [Stop → hook prints: "claude --agent engineer-mod-module-X"]
  [HUMAN RUNS: claude --agent engineer-mod-module-X]
-Engineer
- ↓ fixes bugs, re-runs self-check.sh
+Engineer (attempt 1)
+ ↓ writes a one-line impact note, fixes bugs, re-runs self-check.sh
  ↓ commits: git commit -m "engineer-mod-module-X(bugfix): bug fixes for <issues>"
  [Stop → hook prints: "claude --agent qa-mod-module-X"]
  [HUMAN RUNS: claude --agent qa-mod-module-X]
 QA [re-verify]
  ↓ follows regression-test workflow
  ↓ commits: git commit -m "qa-mod-module-X: <pass|fail> — regression test"
- ↓ pass or fail again
+ ├─ PASS → done
+ ├─ FAIL (2nd failure) → same loop back to Engineer (attempt 2)
+ └─ FAIL (3rd failure, or an escalation marker is already open) →
+      QA does NOT route back to Engineer again
+      ↓ commits with result: repeat-failure
+      [Stop → hook prints: "claude --agent tech-lead"]
+      [HUMAN RUNS: claude --agent tech-lead]
+     Tech Lead [repeat-failure-review]
+      ↓ requires real evidence of which layer caused the bug
+      ↓ writes diagnosis + recommended approach to status.md Tech Lead Reviews
+      ↓ writes escalation marker to modules/module-X/status.md: "AC-ID: ESCALATED TO TECH LEAD — open"
+      ↓ commits
+      [HUMAN RUNS: claude --agent engineer-mod-module-X, with Tech Lead's diagnosis in hand]
+     Engineer (implements per Tech Lead's diagnosis, not an independent attempt)
+      ↓ commits
+      [HUMAN RUNS: claude --agent qa-mod-module-X]
+     QA [re-verify]
+      ├─ PASS → flips marker to "resolved <date>", done
+      └─ FAIL again → routes straight back to Tech Lead (marker still open, no new 3-count)
 ```
 
 ### Retrospective (manual only, after phase or project completion)

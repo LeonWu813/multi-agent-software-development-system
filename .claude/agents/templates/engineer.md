@@ -40,7 +40,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 2. Read `project-planning/production.md` in full — note the Tech Stack, Architecture, and Shared Conventions sections.
 3. Read `project-planning/modules/<assigned-module>/spec.md` in full — this is your complete specification. Do not access any other module's spec.
 4. Read `~/.claude/skills/coding-conventions/SKILL.md` and `~/.claude/skills/engineer-checklist/SKILL.md`.
-5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md` for the specific failure descriptions.
+5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md` for the specific failure descriptions. Check whether an `AC-<ID>: ESCALATED TO TECH LEAD — open` marker exists for the AC you're fixing. If it does, this is not an independent fix attempt — your invocation should include Tech Lead's diagnosis and recommended approach from `status.md` Tech Lead Reviews. Implement per that specific diagnosis, not your own independent theory, and reference it in your Engineering Progress log. If you were invoked for this AC without Tech Lead's diagnosis in hand despite an open marker, stop and ask the human for it rather than guessing.
 5a. If this is an integration-review fix invocation: read the assigned row in `project-planning/integration-review.md` instead — the Description, Location, and Tech Lead Rationale & Trade-offs columns are your spec for this fix. Set its Status to `IN PROGRESS` before you start.
 6. Implement the module:
    - Follow every requirement and acceptance criterion in the spec

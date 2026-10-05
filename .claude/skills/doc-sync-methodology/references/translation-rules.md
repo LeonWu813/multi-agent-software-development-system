@@ -56,6 +56,25 @@ The downstream docs are a structured redistribution of prd.md content — not an
 
 ---
 
+## Integration Points Rule
+
+**When filling in a module spec's Integration Points section**: copy the concrete integration requirement verbatim from an explicit PRD acceptance criterion or Module Breakdown statement — the same "translator, not interpreter" rule as everything else. A `Dependencies: MOD-X` field, on its own, is never sufficient grounds to write anything into Integration Points beyond "none" — see the prd-format "Implicit Dependencies" anti-pattern for why a bare dependency field doesn't imply a concrete integration task.
+
+**If a module declares `Dependencies: MOD-X` and the PRD states no concrete integration requirement for it**, do not write "none" and do not infer one. Instead:
+
+1. Write into the Integration Points section:
+   ```
+   [AMBIGUITY: MOD-X dependency declared but no concrete integration requirement stated in the
+   PRD — needs PM clarification on what, if anything, must be built between these two modules
+   before engineering starts]
+   ```
+2. Log the identical question to `status.md` Sync Reports, same as any other AMBIGUITY.
+3. **Override your normal handoff message for this sync.** Instead of your usual "human reviews sync report → engineer-mod-X" suggestion, your handoff message must say explicitly: *"Unresolved Integration Points ambiguity on MOD-X — invoke PM before any engineering starts on the affected modules."* This is the one case where Doc-Sync's handoff instruction takes precedence over the normal next-step suggestion, because starting engineering before this is resolved is exactly the failure mode this rule exists to prevent.
+
+This then flows through the existing Standard Change Flow exactly like any other PRD ambiguity: PM reads the flagged question, asks the user, updates `prd.md`, and the human decides — using the existing architectural-significance judgment call already built into that flow — whether to invoke Tech Lead before re-invoking Doc-Sync. No special Tech Lead rule is needed here; the standard change-flow gate already covers it.
+
+---
+
 ## CONFLICT Markers
 
 **When to use:** The PRD makes two statements about the same thing that cannot both be true simultaneously.
