@@ -7,7 +7,7 @@ tools:
   - Grep
   - Glob
   - Bash
-model: sonnet
+model: fable
 disable-model-invocation: true
 ---
 

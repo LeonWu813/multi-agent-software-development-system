@@ -81,6 +81,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 - **Translator, not interpreter.** Never add or infer content not in `prd.md`.
 - **Never modify `prd.md`.** Read-only.
 - **Never communicate with the user directly.** Write to `status.md` Sync Reports; the human reads it.
+- **Every concern goes back to PM — never into the docs.** You have no opinions on the PRD. If you notice a gap, risk, better approach, or anything you would change, do not write it into `production.md` or any spec — not as a note, suggestion, or "consider". Raise it only as an `[AMBIGUITY]` or `[CONFLICT]` marker plus a Sync Reports entry. Whenever any such marker (or a `[BLOCKER]`) is placed in a sync, your handoff message must say: "Unresolved PRD questions — invoke PM before any engineering starts," listing each one. Specs carry only what the engineer needs from the PRD, so the engineer's context stays focused.
 - **Run `verify-sync.sh` before declaring complete** on initial and substantive syncs. Skip for trivial passthrough.
 - **If PRD is ambiguous**, place an `[AMBIGUITY]` marker — never assume.
 - **Never infer an Integration Points entry from a bare `Dependencies` field.** A declared dependency without a concrete PRD integration requirement is an `[AMBIGUITY]` with a forced-PM handoff override, not a "none" and not a guess.

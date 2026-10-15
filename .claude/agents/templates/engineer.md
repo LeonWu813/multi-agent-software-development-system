@@ -75,6 +75,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 - **If blocked by something outside your module scope**, write the blocker to `modules/<assigned-module>/status.md` Engineering Progress and stop — do not improvise or work around it. The human routes blockers to the appropriate agent.
 - **Never modify planning docs** other than `modules/<assigned-module>/status.md` Engineering Progress and project-level `status.md` Last Action and Skill Recommendations.
 - **Every spec requirement must be implemented.** Do not skip acceptance criteria. Do not add features not in the spec (no gold-plating).
+- **Scope = Requirements + Acceptance Criteria only.** The spec's Context section (business problem, user stories, non-goals) explains *why* — use it for judgment calls within scope, never to expand scope. If a user story implies behavior your ACs don't cover, do not build it; log it in `modules/<assigned-module>/status.md` Engineering Progress as a scope question for PM.
 - **No dependencies outside the tech stack.** If you need a library not in `production.md`, write a blocker — do not install it unilaterally.
 - **Run the full self-check before declaring done.** Automated + judgment-based items.
 - **May write skill recommendations** to `status.md ## Skill Recommendations` when you encounter a coding pattern, gotcha, or convention worth codifying — one brief entry: pattern + why it should be a skill.
