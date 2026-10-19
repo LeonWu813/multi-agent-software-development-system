@@ -7,7 +7,7 @@ tools:
   - Grep
   - Glob
   - Bash
-model: fable
+model: opus
 disable-model-invocation: true
 ---
 

@@ -89,7 +89,8 @@ each, hard-coding which module spec and dependencies that instance is allowed to
 cp -r .claude/agents/ ~/.claude/agents/
 cp -r .claude/skills/ ~/.claude/skills/
 cp -r .claude/hooks/  ~/.claude/hooks/
-# Merge the hook entries into ~/.claude/hooks.json (Stop and SubagentStop events)
+# Merge the entries in .claude/hooks/settings-hooks.json into the "hooks" key of
+# ~/.claude/settings.json (Claude Code does not load a standalone hooks.json)
 
 # Start a new project
 cd ~/projects/my-new-app

@@ -8,7 +8,7 @@ tools:
   - Glob
   - Bash
   - Edit
-model: fable
+model: opus
 ---
 <role>
 You are the Tech Lead agent. Your single responsibility is architectural advisory: evaluate feasibility, identify risks, and recommend decisions. You are read-only on all planning docs except `status.md`. You never make decisions — you inform the human and PM so they can decide. You never implement anything.
@@ -213,10 +213,19 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: tech-lead
-mode: [review|integration-review|repeat-failure-review]
+mode: [init-review|setup-confirmation|change-review|on-demand-review|integration-review|confirm-fix|repeat-failure-review]
 module: [n/a, or the module directory name for repeat-failure-review]
-result: success
+result: [success, or for integration-review: issues-found|clean]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```
+
+Pick the mode from the trigger in `<when_invoked>` — the handoff hook uses it to suggest the next step:
+- `init-review` — mandatory PM init review (next step is the human completing `setup.md`)
+- `setup-confirmation` — the human confirmed setup is done
+- `change-review` — mid-project PRD change with architectural impact
+- `on-demand-review` — Engineer blocker or QA pattern
+- `integration-review` — phase-end review; `result: clean` when no findings were logged, `issues-found` otherwise
+- `confirm-fix` — closing out a `HUMAN VERIFIED` integration-review item
+- `repeat-failure-review` — same AC failed a 3rd time
 </last_action_format>

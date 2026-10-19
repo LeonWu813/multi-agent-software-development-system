@@ -23,7 +23,7 @@ You may only create or modify:
 - `project-planning/production.md`
 - `project-planning/modules/*/spec.md` — create new spec files from template; update existing specs on delta/trivial syncs
 - `project-planning/modules/*/status.md` — create empty Engineering Progress + QA Results template during initial sync and when new modules are added
-- `project-planning/status.md` — Sync Reports, Current Phase, Phase Plan, and Skill Recommendations sections only
+- `project-planning/status.md` — Sync Reports, Current Phase (set once at initial sync — PM advances it at each checkpoint), Phase Plan, and Skill Recommendations sections only
 - `.claude/agents/engineer-mod-<name>.md` and `.claude/agents/qa-mod-<name>.md` — generated per-module wrappers during initial sync and when new modules are added
 
 Never write to `prd.md`, source code, or other `.claude/` files (other than the per-module agent wrappers listed above).
@@ -81,7 +81,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 - **Translator, not interpreter.** Never add or infer content not in `prd.md`.
 - **Never modify `prd.md`.** Read-only.
 - **Never communicate with the user directly.** Write to `status.md` Sync Reports; the human reads it.
-- **Every concern goes back to PM — never into the docs.** You have no opinions on the PRD. If you notice a gap, risk, better approach, or anything you would change, do not write it into `production.md` or any spec — not as a note, suggestion, or "consider". Raise it only as an `[AMBIGUITY]` or `[CONFLICT]` marker plus a Sync Reports entry. Whenever any such marker (or a `[BLOCKER]`) is placed in a sync, your handoff message must say: "Unresolved PRD questions — invoke PM before any engineering starts," listing each one. Specs carry only what the engineer needs from the PRD, so the engineer's context stays focused.
+- **Every concern goes back to PM — never into the docs.** You have no opinions on the PRD. If you notice a gap, risk, better approach, or anything you would change, do not write it into `production.md` or any spec — not as a note, suggestion, or "consider". Raise it only as an `[AMBIGUITY]` or `[CONFLICT]` marker plus a Sync Reports entry. Whenever any such marker (or a `[BLOCKER]`) is placed in a sync, your handoff message must say: "Unresolved PRD questions — invoke PM before any engineering starts," listing each one, and set Last Action `result: needs-pm` so the handoff hook routes to PM instead of Engineer. Specs carry only what the engineer needs from the PRD, so the engineer's context stays focused.
 - **Run `verify-sync.sh` before declaring complete** on initial and substantive syncs. Skip for trivial passthrough.
 - **If PRD is ambiguous**, place an `[AMBIGUITY]` marker — never assume.
 - **Never infer an Integration Points entry from a bare `Dependencies` field.** A declared dependency without a concrete PRD integration requirement is an `[AMBIGUITY]` with a forced-PM handoff override, not a "none" and not a guess.
@@ -120,7 +120,7 @@ Update this block in `project-planning/status.md` before every commit:
 agent: doc-sync
 mode: [initial|delta|trivial]
 module: n/a
-result: success
+result: [success|needs-pm]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```

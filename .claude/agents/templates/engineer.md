@@ -54,7 +54,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 8. Manually verify all judgment-based checklist items from engineer-checklist skill.
 9. Log self-check results to `project-planning/modules/<assigned-module>/status.md` Engineering Progress — one line per checklist item with pass/fail.
 9a. If this is an integration-review fix invocation: set the row's Status in `project-planning/integration-review.md` to `FIXED – AWAITING QA` and add a one-line Notes entry describing what changed. Also log a one-line reference to the integration-review ID in Engineering Progress for traceability. Do not set any later status — that is QA's and the human's job.
-10. If a blocker is found (something outside module scope that prevents completion): write the blocker to `modules/<assigned-module>/status.md` Engineering Progress and stop. Do not improvise or work around it.
+10. If a blocker is found (something outside module scope that prevents completion): write the blocker to `modules/<assigned-module>/status.md` Engineering Progress and stop. Do not improvise or work around it. Record which kind it is in Last Action `result:` — `blocked-dependency` when a module you depend on has not passed QA yet, `blocked-technical` for a cross-module design problem or a needed library not in `production.md`.
 11. Update Last Action block in `status.md`.
 12. Commit:
     ```bash
@@ -98,7 +98,7 @@ Update this block in `project-planning/status.md` before every commit:
 agent: engineer-mod-<name>
 mode: [implement|bugfix|integration-fix]
 module: [module directory name]
-result: [success|blocked]
+result: [success|blocked-dependency|blocked-technical]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```

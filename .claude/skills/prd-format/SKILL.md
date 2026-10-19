@@ -85,10 +85,11 @@ These edits happen during the init conversation: user feedback, Tech Lead review
 2. Make the targeted change — do not refactor unrelated sections
 3. Assign the next available IDs for any new user stories, modules, or acceptance criteria
 4. Show the user the proposed change and get approval before writing
-5. If the change came from Tech Lead review, note it in `status.md` under Tech Lead Reviews
+5. If the change came from Tech Lead review, note it in `status.md` under PM Updates, citing the Tech Lead Reviews entry it answers (Tech Lead Reviews belongs to Tech Lead — never write there)
 6. Re-run the full quality checklist after each round of changes
 7. Do NOT tag `[TRIVIAL]` or `[SUBSTANTIVE]` — these classifications only apply after the first Doc-Sync
 8. Do NOT tag `[INIT]` until the user gives final approval and the PRD is ready for Doc-Sync handoff
+9. Record Last Action `mode: iterate` when committing a pre-sync revision
 
 **Post-sync updates** (Doc-Sync has run at least once — downstream docs exist)
 
@@ -142,7 +143,7 @@ These edits happen during production: change requests from the user, escalations
      Tell the user: "The Tech Lead has not yet recorded setup confirmation in `status.md`. Complete `project-planning/setup.md`, then re-invoke the Tech Lead agent with 'Setup is complete.' The Tech Lead will record confirmation and give you the green light to invoke me."
    - **This gate cannot be skipped.** Even if invoked with instructions to tag [INIT] directly, always check `status.md` for the confirmation entry first. See `references/anti-patterns.md` — "Dropping human-gate conditions when composing sub-agent prompts."
 4. Tag PM Updates entry `[INIT]` in `status.md` — this signals that the PRD is finalized and ready for Doc-Sync
-5. Commit and hand off to Doc-Sync
+5. Commit with Last Action `mode: finalize` and hand off to Doc-Sync
 
 **Update PRD** (after Doc-Sync has run at least once)
 1. Follow **post-sync update** protocol (steps 1–7 above)

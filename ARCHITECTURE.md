@@ -47,7 +47,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 - **File**: `.claude/agents/pm.md`
 - **Single Responsibility**: Own `prd.md` + all user communication
 - **Tools**: Read, Grep, Glob, Write
-- **Write Scope**: `prd.md` and project-level `status.md` (PM sections: Last Action, Build Config, PM Updates, Module Map, Checkpoint History, Skill Recommendations). PM must NOT write to Phase Plan, Current Phase, Tech Lead Reviews, Sync Reports, or Decisions in project-level `status.md` — those belong to other agents. Engineering Progress and QA Results live in module-level `modules/*/status.md`, not in project-level `status.md`.
+- **Write Scope**: `prd.md` and project-level `status.md` (PM sections: Last Action, Build Config, PM Updates, Module Map, Checkpoint History, Skill Recommendations, and Current Phase — advance only, at checkpoint). PM must NOT write to Phase Plan, Tech Lead Reviews, Sync Reports, or Decisions in project-level `status.md` — those belong to other agents. Engineering Progress and QA Results live in module-level `modules/*/status.md`, not in project-level `status.md`.
 - **Skills Used**: prd-format
 - **Invocation**: auto or manual
 - **Modes**:
@@ -66,7 +66,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
   - Always confirms changes with user before writing to `prd.md`
   - If requirements are ambiguous, asks numbered questions and waits — does not assume
   - **Never tags [INIT] without verifying a `### Setup Confirmation` entry exists in `status.md`** — before tagging, PM must read `project-planning/status.md` and confirm that entry is present under `## Tech Lead Reviews`. If absent, stop and tell the user to re-invoke the Tech Lead with "Setup is complete". An orchestrator's assertion that setup is done is not sufficient — the artifact must be in the file.
-  - **Never writes to Phase Plan, Current Phase, Tech Lead Reviews, Sync Reports, or Decisions in project-level `status.md`** — those sections belong to other agents. PM init leaves Phase Plan and Current Phase blank; Doc-Sync populates them during the initial sync. Engineering Progress and QA Results live in module-level `modules/*/status.md`. During checkpoint, PM reads all `modules/*/status.md` files to compile phase results.
+  - **Never writes to Phase Plan, Tech Lead Reviews, Sync Reports, or Decisions in project-level `status.md`** — those sections belong to other agents. PM init leaves Phase Plan and Current Phase blank; Doc-Sync populates them during the initial sync. At each checkpoint PM advances Current Phase to the next phase — the one write PM makes to that section. Engineering Progress and QA Results live in module-level `modules/*/status.md`. During checkpoint, PM reads all `modules/*/status.md` files to compile phase results.
   - May write skill recommendations to `status.md ## Skill Recommendations` when it notices a recurring pattern or convention worth codifying — one brief entry per observation: pattern + why it should be a skill
   - Commits all changes to git before stopping: `git add prd.md status.md && git commit -m "pm(<mode>): <summary>"`
 
@@ -550,11 +550,13 @@ SKILL.md uses semantic XML tags, not markdown headings:
 
 - **Location**: `.claude/hooks/handoff.sh` (project source); `~/.claude/hooks/handoff.sh` (account-level copy)
 - **Registered Events**: `Stop` (primary — fires when a `claude --agent X` CLI session ends), `SubagentStop` (secondary — fires when a Task-tool subagent stops)
-- **Registration**: `.claude/hooks.json` (project-level) or `~/.claude/hooks.json` (account-level)
+- **Registration**: under `"hooks"` in `~/.claude/settings.json` (account-level) or a project's `.claude/settings.json`. Claude Code does not load a standalone `hooks.json` outside plugins. The repo ships the entries to merge in `.claude/hooks/settings-hooks.json`.
 - **Behavior**:
   - Parses the `## Last Action` block in `status.md` (machine-readable fields: agent, mode, module, result, commit) to determine which agent just finished and what happened
   - Checks for uncommitted changes in the stopping agent's write scope — if found, prints a warning: `⚠️ Uncommitted changes detected. The agent should have committed before stopping.`
-  - Prints the suggested `claude --agent <name>` command to STDOUT (appears in Claude Code transcript)
+  - Returns the suggested `claude --agent <name>` command as JSON `systemMessage`, the documented way to show the user a message (plain stdout from Stop hooks goes to the debug log, not the transcript)
+  - Shows each handoff once: it fingerprints the Last Action block in `.git/handoff-last-shown`, so the repeated Stop/SubagentStop firings stay silent until an agent records a new Last Action
+  - Warns about any uncommitted change in the repo, source code and generated agents included
   - Never auto-invokes the next agent — always waits for human to run the command
   - Must be executable (`chmod +x`)
 
@@ -563,9 +565,15 @@ SKILL.md uses semantic XML tags, not markdown headings:
 | Just Finished | Status Context | Hook Suggests |
 |---|---|---|
 | PM (init) | PRD created, first time | `✅ PM completed initial PRD. Next: claude --agent tech-lead` |
-| Tech Lead | Init review complete | `✅ Tech Lead review complete. Findings in status.md. setup.md created. Complete every step in project-planning/setup.md and confirm setup is done — then run: claude --agent pm` |
+| Tech Lead | Init review complete | `✅ Tech Lead review complete. Findings in status.md. setup.md created. Complete every step in project-planning/setup.md, then run: claude --agent tech-lead (say "Setup is complete")` |
+| Tech Lead (setup confirmation) | Environment verified | `✅ Setup confirmed. Next: claude --agent pm` |
 | PM (finalize after Tech Lead) | PRD approved by user | `✅ PRD finalized. Next: claude --agent doc-sync` |
 | PM (change) | PRD updated mid-project | `✅ PM updated PRD. Next: claude --agent doc-sync (Consider claude --agent tech-lead first if this change has architectural impact.)` |
+| Doc-Sync (`needs-pm`) | Placed `[AMBIGUITY]`/`[CONFLICT]`/`[BLOCKER]` markers | `⚠️ Doc-Sync left unresolved PRD questions. Next: claude --agent pm before any engineering starts` |
+| PM (checkpoint, more phases) | Phase approved, Current Phase advanced | `✅ Now in [phase]. Next: claude --agent engineer-mod-[first module of this phase]` |
+| PM (checkpoint, `project-complete`) | Final phase approved, README written | `✅ Project complete. Optional: claude --agent retrospective` |
+| Engineer (`blocked-dependency`) | A dependency hasn't passed QA | `⚠️ Finish the dependency module first; if the phase order is wrong: claude --agent pm` |
+| Engineer (`blocked-technical`) | Cross-module or tech-stack blocker | `⚠️ Next: claude --agent tech-lead` |
 | Doc-Sync | Sync complete | `✅ Doc-Sync complete. Review sync report in status.md. Next: claude --agent engineer-mod-[module-name]` |
 | Engineer | Implementation + self-check done | `✅ Engineer completed [module-name]. Self-check logged to modules/[module-name]/status.md. Next: claude --agent qa-mod-[module-name]` |
 | QA (pass, more modules remain in phase) | Module passed all checks | `✅ QA passed [module-name]. Next: claude --agent engineer-mod-[next-module]` |
@@ -670,7 +678,7 @@ SKILL.md uses semantic XML tags, not markdown headings:
 │           └── scan-integration.sh                # Automated first-pass scan (lead list, not a verdict)
 ├── hooks/
 │   └── handoff.sh                                 # Stop/SubagentStop hook for handoffs
-└── hooks.json                                     # Hook registration
+└── hooks/settings-hooks.json                      # Hook entries to merge into settings.json
 
 CLAUDE.md                                           # Created by init-project.sh from CLAUDE.tmpl.md — Coordinator
                                                      # Instructions (ownership rules); auto-loaded by every default session
@@ -925,9 +933,9 @@ The coordination hub for project-wide state. Every agent writes Last Action here
 <!-- Machine-readable block. Updated by every agent before stopping.
      handoff.sh parses this section to determine the next suggestion. -->
 agent: [pm|doc-sync|tech-lead|engineer-mod-<name>|qa-mod-<name>|retrospective]
-mode: [init|change|checkpoint|delta|trivial|review|implement|bugfix|verify|regression|propose]
+mode: [pm: init|iterate|finalize|change|checkpoint — doc-sync: initial|delta|trivial — tech-lead: init-review|setup-confirmation|change-review|on-demand-review|integration-review|confirm-fix|repeat-failure-review — engineer: implement|bugfix|integration-fix — qa: verify|regression|integration-fix-verify — retrospective: propose]
 module: [module directory name or "n/a"]
-result: [success|bugs-found|spec-issue|blocked|proposals-written]
+result: [success|project-complete|needs-pm|clean|issues-found|blocked-dependency|blocked-technical|bugs-found|spec-issue|repeat-failure|proposals-written]
 commit: [git commit hash]
 timestamp: [ISO 8601]
 
@@ -1054,7 +1062,7 @@ Complete list of files to create, in order:
 | # | File | Description |
 |---|---|---|
 | 36 | `.claude/hooks/handoff.sh` | Stop/SubagentStop handoff hook |
-| 37 | `.claude/hooks.json` | Hook registration |
+| 37 | `.claude/hooks/settings-hooks.json` | Hook entries to merge into `settings.json` |
 
 **Total: 37 files**
 
@@ -1120,7 +1128,8 @@ These rules prevent gaps between what skills teach and what agents enforce. Appl
 - Register on `Stop` (primary, fires for CLI sessions) and `SubagentStop` (secondary, fires for Task-tool subagents) events
 - The hook reads `status.md` to determine context and prints the appropriate suggestion
 - Make executable with `chmod +x`
-- Register in `.claude/hooks.json` (project) or `~/.claude/hooks.json` (account-level)
+- Register under `"hooks"` in `.claude/settings.json` (project) or `~/.claude/settings.json` (account-level) — never a standalone `hooks.json`, which Claude Code does not load outside plugins
+- Show the user its message as JSON `systemMessage`; plain stdout from a Stop hook only reaches the debug log
 
 ### Script Conventions
 - All scripts are bash, POSIX-compatible where possible
@@ -1152,7 +1161,7 @@ After all files are created and reviewed in the staging directory:
 cp -r .claude/agents/ ~/.claude/agents/
 cp -r .claude/skills/ ~/.claude/skills/
 cp -r .claude/hooks/ ~/.claude/hooks/
-# Merge hook entries into existing ~/.claude/hooks.json (Stop and SubagentStop events)
+# Merge the entries in .claude/hooks/settings-hooks.json into the "hooks" key of ~/.claude/settings.json
 ```
 
 To start a new project:
