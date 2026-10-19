@@ -33,6 +33,9 @@ STATE_FILE="${GIT_DIR:-$CWD/project-planning}/handoff-last-shown"
 FINGERPRINT=$(printf '%s' "$LAST_ACTION" | cksum | cut -d' ' -f1)
 [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "$FINGERPRINT" ] && exit 0
 
+VERIFY_HINT=""
+[ -f "$CWD/.claude/skills/verify/SKILL.md" ] || VERIFY_HINT=". No verify skill yet: once the app runs, ask the coordinator to run /pstack:create-verification-skill (one time, with your OK)"
+
 CURRENT_PHASE=$(awk '/^## Current Phase/{found=1; next} found && /^## /{exit} found && NF{print; exit}' "$STATUS_FILE")
 
 case "$AGENT" in
@@ -41,7 +44,7 @@ case "$AGENT" in
             init)       NEXT="claude --agent tech-lead  # initial PRD review" ;;
             iterate)    NEXT="Review the revised PRD. If the changes are architectural: claude --agent tech-lead. When you give final approval: claude --agent pm  (finalize)" ;;
             finalize)   NEXT="claude --agent doc-sync  # initial sync" ;;
-            change)     NEXT="If this change has architectural impact: claude --agent tech-lead first. Otherwise: claude --agent doc-sync" ;;
+            change)     NEXT="If this change has architectural impact: run /pstack:interrogate on the changed PRD sections in a regular claude session (save to project-planning/pstack-findings/), then claude --agent tech-lead. Otherwise: claude --agent doc-sync" ;;
             checkpoint)
                 if [ "$RESULT" = "project-complete" ]; then
                     NEXT="Project complete — README.md written. Optional: claude --agent retrospective"
@@ -60,7 +63,7 @@ case "$AGENT" in
                 if [ "$RESULT" = "clean" ]; then
                     NEXT="No integration issues this phase. Next: claude --agent pm  (checkpoint)"
                 else
-                    NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name>. Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)"
+                    NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name> (for a fix that touches code shared by several modules, run /pstack:blast-radius on the planned fix first and save it to project-planning/pstack-findings/). Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)"
                 fi ;;
             confirm-fix)            NEXT="If no PROPOSED or open items remain for this phase: claude --agent pm  (checkpoint). Otherwise route the next approved item to its engineer-mod-<name>" ;;
             repeat-failure-review)  NEXT="Review Tech Lead's diagnosis in status.md Tech Lead Reviews — route to claude --agent engineer-mod-<name> with the diagnosis in hand, or claude --agent pm if it requires a requirements change" ;;
@@ -88,10 +91,10 @@ case "$AGENT" in
             esac
         else
             case "$RESULT" in
-                success)        NEXT="See Phase Plan for next module — or, if this was the last module in the phase: claude --agent tech-lead  (integration & optimization review)" ;;
+                success)        NEXT="See Phase Plan for next module — or, if this was the last module in the phase: run /pstack:thermos on this phase's changes in a regular claude session (save to project-planning/pstack-findings/), then claude --agent tech-lead  (integration & optimization review)$VERIFY_HINT" ;;
                 bugs-found)     NEXT="claude --agent engineer-mod-$SLUG  # fix bugs in QA Results" ;;
                 spec-issue)     NEXT="claude --agent pm  # spec issue — PRD update needed" ;;
-                repeat-failure) NEXT="claude --agent tech-lead  # same AC failed again — repeat-failure review, not another Engineer round" ;;
+                repeat-failure) NEXT="Same AC failed again — run /pstack:how and /pstack:why on the failing path in a regular claude session (save to project-planning/pstack-findings/), then claude --agent tech-lead  (repeat-failure review, not another Engineer round)" ;;
                 *)              NEXT="Check QA Results in project-planning/modules/mod-$SLUG/status.md" ;;
             esac
         fi ;;

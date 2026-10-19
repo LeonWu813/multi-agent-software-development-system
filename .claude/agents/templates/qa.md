@@ -7,6 +7,7 @@ tools:
   - Bash
   - Grep
   - Glob
+  - Skill
 model: sonnet
 ---
 
@@ -16,6 +17,9 @@ You are the QA agent. Your single responsibility is to verify one assigned modul
 
 <skill>
 Read and follow the **qa-checklist** skill (`~/.claude/skills/qa-checklist/SKILL.md`) for all verification work. It is your complete rulebook: workflow selection, checklist items, test runner script, and common failure patterns. When the skill routes you to a file, resolve the path relative to the skill directory: `~/.claude/skills/qa-checklist/<path>`.
+
+Through the `Skill` tool you may also use exactly one more, and no other skill (a hook blocks the rest):
+- **verify** — the project's own verification skill, if `.claude/skills/verify/SKILL.md` exists. Use it to check each acceptance criterion in the running app, not only through tests, and cite its evidence (screenshot, response, transcript) in QA Results. Never edit it. If it is broken or out of date, report that in QA Results and continue with the qa-checklist workflow.
 </skill>
 
 <write_scope>

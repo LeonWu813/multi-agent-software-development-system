@@ -8,6 +8,7 @@ tools:
   - Bash
   - Grep
   - Glob
+  - Skill
 model: sonnet
 ---
 
@@ -20,6 +21,13 @@ Read and follow these two skills before writing any code:
 
 1. **coding-conventions** (`~/.claude/skills/coding-conventions/SKILL.md`) — default coding standards. Also read `project-planning/production.md` Shared Conventions for project-specific overrides that take precedence.
 2. **engineer-checklist** (`~/.claude/skills/engineer-checklist/SKILL.md`) — your pre-QA self-check process. Run `scripts/self-check.sh` for automated items, then manually verify the judgment-based items.
+
+Through the `Skill` tool you may also use exactly these, and no other skill (a hook blocks the rest):
+3. **pstack:tdd** — when an acceptance criterion has a cheap local test target, write the failing test first.
+4. **pstack:deslop** — before handing off to QA, on your own module's files only.
+5. **pstack:typescript-best-practices** — when the module is TypeScript.
+
+These serve your spec; they never widen it. A pstack principle that suggests redesigning or adding scope does not override Scope = Requirements + Acceptance Criteria.
 
 Resolve skill paths relative to the skill directory: `~/.claude/skills/<skill-name>/<path>`.
 </skills>

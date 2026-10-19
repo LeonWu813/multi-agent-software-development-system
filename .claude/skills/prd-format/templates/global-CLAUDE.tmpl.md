@@ -25,6 +25,8 @@ You are the coordinator, not an owner. Never call Edit, Write, or MultiEdit dire
 - `project-planning/modules/*/spec.md` — invoke `doc-sync`
 - Source code or database migrations owned by a module — resolve the module name from `status.md` Module Map, then invoke `engineer-mod-<name>`
 
+pstack review skills (`interrogate`, `thermos`, `blast-radius`, `how`, `why`) are run by you, never inside an agent, and only deliver findings: save their output to `project-planning/pstack-findings/`, commit it, and hand it to `tech-lead`. Never apply a finding yourself, and never run a file-changing pstack skill (`poteto-mode`, `reflect`, `correct`, `babysit`, `fix-ci`, `deslop`, `no-comments`, `tdd`) on owned artifacts. The project template's "Required pstack steps" section has the full trigger table.
+
 A one-line fix that looks obvious is not an exception — it is the highest-risk case, because it feels safe to skip delegation. If you catch yourself about to patch something directly, stop and invoke the owning agent instead.
 
 ## What to do instead

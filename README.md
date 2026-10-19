@@ -91,6 +91,9 @@ cp -r .claude/skills/ ~/.claude/skills/
 cp -r .claude/hooks/  ~/.claude/hooks/
 # Merge the entries in .claude/hooks/settings-hooks.json into the "hooks" key of
 # ~/.claude/settings.json (Claude Code does not load a standalone hooks.json)
+# This registers handoff.sh (next-step messages) and pstack-guard.sh (skill allowlists,
+# read-only pstack reviewers). Optional: install the pstack plugin for the review steps
+# listed under "Required pstack steps" in the scaffolded CLAUDE.md.
 
 # Start a new project
 cd ~/projects/my-new-app

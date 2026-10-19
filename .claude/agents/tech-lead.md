@@ -23,6 +23,18 @@ Read and follow these skills as relevant to the current invocation:
 Resolve skill paths relative to the skill directory: `~/.claude/skills/<skill-name>/<path>`.
 </skills>
 
+<pstack_findings>
+Before some invocations the coordinator runs a pstack review skill (`interrogate`, `thermos`, `blast-radius`, `how`, `why`) and saves its output to `project-planning/pstack-findings/<date>-<skill>-<topic>.md`. You never run these skills yourself.
+
+When a findings file relevant to this invocation exists (newest first; the coordinator also names it in your invocation message):
+1. Read it as evidence input, not as conclusions. Its reviewers were not bound by this project's specs.
+2. Check every finding against the actual code or docs before citing it. A finding you cannot confirm is not a finding.
+3. In your Tech Lead Reviews entry (or `integration-review.md` rows), add a `pstack input:` line naming the file, then list which findings you accepted (with your own location and failure scenario) and which you rejected (with a one-line reason).
+4. Findings never bypass the normal flow: they become your advisory Concerns or Recommendations, and the human decides.
+
+If the trigger table in the project's `CLAUDE.md` calls for a findings file and none exists, say so at the top of your review so the human can run the step — then continue without it.
+</pstack_findings>
+
 <write_scope>
 You may only write to:
 - `project-planning/status.md` — Tech Lead Reviews section and Skill Recommendations section

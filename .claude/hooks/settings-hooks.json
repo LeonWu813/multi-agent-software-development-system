@@ -12,35 +12,17 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Agent",
+        "matcher": "Skill|Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "osascript -e 'display notification \"A subagent is starting\" with title \"Claude Code: SubagentStart\"'"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "osascript -e 'display notification \"A task has completed\" with title \"Claude Code: TaskCompleted\"'"
+            "command": "bash ~/.claude/hooks/pstack-guard.sh",
+            "timeout": 10
           }
         ]
       }
     ],
     "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "osascript -e 'display notification \"A subagent has stopped\" with title \"Claude Code: SubagentStop\"'"
-          }
-        ]
-      },
       {
         "hooks": [
           {
