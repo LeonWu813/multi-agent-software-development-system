@@ -15,24 +15,36 @@ no black box. A human reviews and approves every handoff.
 ## How it works
 
 Each agent does one job, sees only the files its role needs, and commits its work
-to git before stopping. A `Stop` hook then prints the exact `claude --agent <name>`
-command to run next — and the human decides whether to run it. Every handoff is an
-atomic git commit, so any step can be rolled back cleanly.
+to git before stopping. The human runs every agent directly as its own session
+(`claude --agent <name>`), so agents can ask the human questions; no agent starts
+another. A `Stop` hook then prints the exact `claude --agent <name>` command to run
+next — and the human decides whether to run it. The default Claude Code session acts
+as a coordinator: it tells the human which agent to run and runs the pstack review
+steps (saved to `project-planning/pstack-findings/`) that Tech Lead reads, but never
+edits an owned file itself. Every handoff is an atomic git commit, so any step can be
+rolled back cleanly.
 
 ```mermaid
 flowchart TD
-    U([User requirements]) --> PM1[PM: gather requirements, write prd.md]
+    U([User requirements]) --> PM1[PM init: sharpen, restate goal, write prd.md]
     PM1 --> TL[Tech Lead: architectural review, produce setup runbook]
-    TL --> H1{{Human: complete setup, approve}}
-    H1 --> PM2[PM: finalize PRD, tag INIT]
+    TL --> H1{{Human: complete setup, Tech Lead confirms}}
+    H1 --> PMI[PM iterate: apply review feedback]
+    PMI -->|architectural| TL2[Tech Lead: pre-sync review]
+    TL2 --> PMI
+    PMI -->|user approves| PM2[PM finalize: Module Map + Source Paths, tag INIT]
     PM2 --> DS[Doc-Sync: translate PRD into module specs,<br/>generate per-module Engineer + QA agents]
     DS --> ENG[Engineer: implement one assigned module]
     ENG --> QA[QA: verify module against its spec]
-    QA -->|pass| CP[PM checkpoint: review phase with user]
+    QA -->|next module| ENG
     QA -->|bug found| ENG
+    QA -->|3rd failure of same AC| TLR[Tech Lead: repeat-failure review]
+    TLR --> ENG
     QA -->|spec issue| PM3[PM change flow: update PRD]
     PM3 --> DS
-    CP -->|next phase| DS
+    QA -->|last module of phase| IR[Tech Lead: integration review<br/>+ human decisions, fixes, verification]
+    IR --> CP[PM checkpoint: review phase with user]
+    CP -->|next phase| ENG
     CP -->|complete| DONE([Project complete])
     DONE -.manual.-> RETRO[Retrospective: propose system improvements]
     RETRO -.proposals.-> H2{{Human: review and selectively apply}}
@@ -70,37 +82,46 @@ makes them produce correct software reliably. Four ideas do most of the work:
 
 | Agent | Responsibility | Can write |
 |-------|----------------|-----------|
-| **PM** | Owns the PRD and all user communication | `prd.md`, project `status.md` |
-| **Doc-Sync** | Translates the PRD into downstream specs; generates per-module Engineer/QA agents | `production.md`, module specs, generated agents |
-| **Tech Lead** | Architectural advisory: feasibility, risks, setup runbook | `status.md` (reviews), `setup.md` |
-| **Engineer** | Implements one assigned module | module source code, its own module status |
+| **PM** | Owns the PRD and all user communication | `prd.md`, its `status.md` sections, final `README.md` |
+| **Doc-Sync** | Translates the PRD into downstream specs; generates per-module Engineer/QA agents | `production.md`, module specs and status files, generated agents |
+| **Tech Lead** | Architectural advisory: feasibility, risks, setup runbook, phase-end integration review | `status.md` (reviews), `setup.md`, `integration-review.md` |
+| **Engineer** | Implements one assigned module | its module's Source Path, its own module status |
 | **QA** | Verifies one module against its spec | its module's QA results |
 | **Retrospective** | Proposes system improvements from project history (manual only) | `retrospective/` proposals |
 
-Engineer and QA are base templates; Doc-Sync generates a thin per-module wrapper for
-each, hard-coding which module spec and dependencies that instance is allowed to read.
+Engineer and QA are base templates (in `.claude/agent-templates/`); Doc-Sync generates
+a thin per-module wrapper for each (`engineer-mod-<name>`, `qa-mod-<name>`), hard-coding
+which module spec, Source Path, and dependencies that instance may use. A
+`PreToolUse` hook enforces each agent's skill allowlist and keeps each Engineer's
+writes inside its module's Source Path.
 
 ---
 
 ## Run it
 
 ```bash
-# Install agents, skills, and hooks
-cp -r .claude/agents/ ~/.claude/agents/
-cp -r .claude/skills/ ~/.claude/skills/
-cp -r .claude/hooks/  ~/.claude/hooks/
+# Install agents, base templates, skills, and hooks
+mkdir -p ~/.claude/agents ~/.claude/agent-templates ~/.claude/skills ~/.claude/hooks
+cp -r .claude/agents/.          ~/.claude/agents/
+cp -r .claude/agent-templates/. ~/.claude/agent-templates/
+cp -r .claude/skills/.          ~/.claude/skills/
+cp -r .claude/hooks/.           ~/.claude/hooks/
+chmod +x ~/.claude/hooks/*.sh
 # Merge the entries in .claude/hooks/settings-hooks.json into the "hooks" key of
 # ~/.claude/settings.json (Claude Code does not load a standalone hooks.json)
-# This registers handoff.sh (next-step messages) and pstack-guard.sh (skill allowlists,
-# read-only pstack reviewers). Optional: install the pstack plugin for the review steps
-# listed under "Required pstack steps" in the scaffolded CLAUDE.md.
+# This registers handoff.sh (next-step messages, on Stop/SubagentStop) and
+# pstack-guard.sh (on PreToolUse: skill allowlists, Engineer Source Path, read-only
+# pstack reviewers). Both need jq. Optional: install the pstack plugin for the review
+# steps listed under "Required pstack steps" in the scaffolded CLAUDE.md.
 
 # Start a new project
 cd ~/projects/my-new-app
 claude --agent pm
 ```
 
-From there, follow the command each hook prints, approving each handoff.
+From there, follow the command each hook prints, approving each handoff. Run each
+agent yourself in its own session — don't have the default session start agents as
+subagents. Restart Claude Code after Doc-Sync generates new per-module agents so they load.
 
 ---
 
@@ -108,9 +129,10 @@ From there, follow the command each hook prints, approving each handoff.
 
 ```
 .claude/
-├── agents/      # The six agent definitions (+ generated per-module wrappers)
-├── skills/      # Reusable knowledge: router SKILL.md + workflows/references/templates/scripts
-└── hooks/       # Handoff hook that prints the next command
+├── agents/           # PM, Doc-Sync, Tech Lead, Retrospective (+ generated per-module wrappers in each project)
+├── agent-templates/  # Engineer and QA base templates Doc-Sync builds the wrappers from
+├── skills/           # Reusable knowledge: router SKILL.md + workflows/references/templates/scripts
+└── hooks/            # handoff.sh (next command), pstack-guard.sh (allowlists, write scope), settings-hooks.json
 ARCHITECTURE.md  # Full design spec — the deep dive
 ```
 

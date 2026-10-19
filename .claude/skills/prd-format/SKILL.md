@@ -11,7 +11,7 @@ Define and enforce PRD authoring standards: structure, ID schemes, quality crite
 - **PRD is the single source of truth**: all downstream docs (production.md, module specs) derive from prd.md — never the reverse
 - **IDs on everything**: every user story gets a unique `US-XXX` ID, every module a `MOD-XXX` ID, every acceptance criterion an `AC-NNN` ID — no unnamed requirements
 - **`[DECISION NEEDED]` markers**: any unresolved item must be marked `[DECISION NEEDED: <description>]` — never assume or paper over ambiguity
-- **No implementation details in the PRD**: the PRD states *what* the system must do, never *how* — architecture and tech choices belong in production.md
+- **No implementation details in the PRD**: the PRD states *what* the system must do, never *how* — architecture and tech choices belong in production.md. One exception: **Adopted Conventions** (section 9) holds the shared conventions Tech Lead proposed and the user approved, so Doc-Sync has a PRD source to copy them from
 - **Always confirm with user before writing**: never update prd.md without explicit user approval of the change
 - **Non-goals are mandatory**: every PRD must explicitly state what is out of scope — implied exclusions are invisible exclusions that invite scope creep
 </essential_principles>
@@ -56,7 +56,7 @@ Run this checklist on the complete PRD before every handoff. Every item must pas
 
 **Content Quality**
 - [ ] No `[DECISION NEEDED]` markers remain unresolved
-- [ ] No implementation details (no "how" — only "what"). Exception: the Architecture Overview may reference technologies named in the Tech Stack section to label components, but must not introduce library names, SDK references, or configuration details beyond what the Tech Stack lists
+- [ ] No implementation details (no "how" — only "what"). Exceptions: the Architecture Overview may reference technologies named in the Tech Stack section to label components, but must not introduce library names, SDK references, or configuration details beyond what the Tech Stack lists; and section 9 Adopted Conventions may state approved conventions, each with a CONV-ID and the Tech Lead review it came from
 - [ ] Every tech stack entry is specific: name + version (e.g., "PostgreSQL 16", not "a database")
 - [ ] Non-goals are explicitly stated, not merely implied
 
@@ -141,7 +141,7 @@ These edits happen during production: change requests from the user, escalations
       ```
 3. **Verify environment setup before tagging [INIT]**: Read `project-planning/status.md` and check for a Tech Lead Setup Confirmation entry under `## Tech Lead Reviews` (a block starting with `### Setup Confirmation`).
    - If a Setup Confirmation entry **exists**: proceed to step 4.
-   - If **no** Setup Confirmation entry exists: **stop. Do not tag [INIT].**
+   - If **no** Setup Confirmation entry exists, or a `### Setup Changed` entry is newer than the latest one: **stop. Do not tag [INIT].**
      Tell the user: "The Tech Lead has not yet recorded setup confirmation in `status.md`. Complete `project-planning/setup.md`, then re-invoke the Tech Lead agent with 'Setup is complete.' The Tech Lead will record confirmation and give you the green light to invoke me."
    - **This gate cannot be skipped.** Even if invoked with instructions to tag [INIT] directly, always check `status.md` for the confirmation entry first. See `references/anti-patterns.md` — "Dropping human-gate conditions when composing sub-agent prompts."
 4. Tag PM Updates entry `[INIT]` in `status.md` — this signals that the PRD is finalized and ready for Doc-Sync
@@ -164,5 +164,5 @@ These edits happen during production: change requests from the user, escalations
 - Module Map written to `status.md` with confirmed directory names for all modules (for `init` mode and any `change` that adds a new module)
 - Build Config written to `status.md` Build Config section (for `init` mode — all three keys present, blank is acceptable if a step doesn't apply)
 - Phase Plan and Current Phase sections in `status.md` are blank at init handoff — Doc-Sync writes them
-- Git commit made before stopping: `git add prd.md status.md project-planning/modules/ && git commit -m "pm(<mode>): <summary>"`
+- Git commit made before stopping: `git add project-planning/prd.md project-planning/status.md project-planning/modules/ && git commit -m "pm(<mode>): <summary>"`
 </success_criteria>

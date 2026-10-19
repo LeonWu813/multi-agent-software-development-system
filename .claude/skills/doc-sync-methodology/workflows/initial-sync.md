@@ -26,7 +26,7 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
    - Tech Stack ← PRD Tech Stack (exact match; one row per entry; name + version; no additions)
    - Architecture ← PRD Architecture Overview (full text, verbatim)
    - Module Index ← one row per module from PRD Module Breakdown (MOD-ID, name, one-line description)
-   - Shared Conventions ← read the `## Build Config` section from `status.md`. Copy the Build, Lint, and Test values exactly. Omit any key whose value is blank. If all three are blank, write `_Build config not yet provided — PM must fill in status.md Build Config._`
+   - Shared Conventions ← (a) read the `## Build Config` section from `status.md`. Copy the Build, Lint, and Test values exactly. Omit any key whose value is blank. If all three are blank, write `_Build config not yet provided — PM must fill in status.md Build Config._` (b) Copy every entry of the PRD's `## Adopted Conventions` section verbatim, keeping its ID. If the section is empty or absent, add nothing.
 
    Set "Last Synced from PRD Revision" to the revision number found in prd.md, or `[AMBIGUITY: PRD has no revision number]` if none is present.
 
@@ -37,7 +37,7 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
    Read the `## Module Map` table from `status.md` to find the directory name for each module. Doc-Sync does NOT create directories — they must already exist (created by PM). Apply all translation decisions in this step according to `references/translation-rules.md`.
 
    For each module in prd.md's Module Breakdown:
-   - Look up its directory in the Module Map. If a module's MOD-ID is missing from the map or its directory does not exist on disk, write `[AMBIGUITY: MOD-XXX has no directory in the Module Map — PM must create the directory and update status.md before this module can be synced]` in the sync report and skip that module.
+   - Look up its directory in the Module Map. If a module's MOD-ID is missing from the map or its directory does not exist on disk, write `[BLOCKER: MOD-XXX has no directory in the Module Map — PM must create the directory and update status.md before this module can be synced]` in the sync report and skip that module.
    - Copy `templates/module-spec.tmpl.md` to `modules/<dir>/spec.md`.
    - Fill each section:
      - Module ID & Name ← PRD module identifier and name
@@ -51,14 +51,19 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
      - Input / Output Contract ← from PRD module definition; if PRD does not specify, write `[AMBIGUITY: PRD does not define the input/output contract for this module]`
      - Dependencies ← MOD-IDs this module depends on, as stated in PRD; if none stated, write `none`
      - Acceptance Criteria ← combined from PRD module criteria and related user story criteria; format each as `AC-NNN: The system shall [observable behavior] when [condition]`
+     - Integration Points ← only from an explicit PRD integration requirement, never from a bare `Dependencies` field (see `references/translation-rules.md` "Integration Points Rule")
 
    Apply AMBIGUITY and CONFLICT markers wherever the PRD is vague or contradictory.
 
    After filling all sections, remove every HTML template comment (`<!-- ... -->`) from the spec.md file. The spec handed to Engineer must contain only real content.
 
+   **Generate the module's agents.** For each module synced in this step, create `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md`, where `<dir>` is the Module Map directory (`mod-login` → `engineer-mod-login`, `qa-mod-login`). Base them on `~/.claude/agent-templates/engineer.md` and `~/.claude/agent-templates/qa.md`: copy the template's frontmatter `tools` and `model` lines exactly and its body verbatim, set `name:` to the wrapper name, and hardcode (a) the module's spec path `project-planning/modules/<dir>/spec.md`, (b) its Source Path from the Module Map, and (c) read access to each dependency module's `modules/<dep-dir>/status.md`.
+
+   **Create the module's status file.** `modules/<dir>/status.md` with the empty sections `## Engineering Progress` and `## QA Results`.
+
 4. **Write phase plan to status.md Phase Plan section**
 
-   Locate or create the `## Phase Plan` section in status.md. Extract the Phases & Milestones from prd.md and copy them into this section. Preserve the PRD's phase names, milestone names, and any stated dates or ordering exactly. Do not add durations, priorities, or commentary not in the PRD.
+   Locate or create the `## Phase Plan` section in status.md. Extract the Phases & Milestones from prd.md and copy them into this section. Preserve the PRD's phase names, milestone names, and any stated dates or ordering exactly. Do not add durations, priorities, or commentary not in the PRD. Set `## Current Phase` to the first phase. (PM advances it at each checkpoint — this is the only time you write it.)
 
 5. **Write sync report to status.md Sync Reports section**
 
@@ -91,7 +96,7 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
    - Re-run verify-sync.sh.
    - Repeat until the script exits 0.
 
-   Do not declare the initial sync complete until verify-sync.sh exits 0.
+   Do not declare the initial sync complete until verify-sync.sh exits 0 — with one exception: if every remaining `[FAIL]` concerns a module you skipped with a `[BLOCKER]`, stop fixing, record Last Action `result: needs-pm`, and commit. Doc-Sync cannot create module directories, so looping would never end.
 
 ---
 
@@ -100,5 +105,6 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
 When verify-sync.sh exits 0, the initial sync is complete. Commit with:
 
 ```
-git add production.md modules/ status.md && git commit -m "doc-sync(initial): <one-line summary of what was synced>"
+git add project-planning/ .claude/agents/   # generated wrappers live in .claude/agents/
+git commit -m "doc-sync(initial): <one-line summary of what was synced>"
 ```

@@ -10,7 +10,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
 
 1. **Read the change description from status.md PM Updates section**
 
-   Locate the most recent entry in `## PM Updates`. Read the full entry to understand:
+   Find the last `## Sync Reports` entry, then read **every** `## PM Updates` entry dated after it — PM may have logged several changes (for example a change, then a revision after Tech Lead's review) before you run. Sync all of them, oldest first. For each entry, understand:
    - What specifically changed in prd.md
    - Why it was tagged [SUBSTANTIVE]
    - Which sections of prd.md were modified (look for references to module IDs, US-IDs, AC numbers, or named sections)
@@ -29,6 +29,8 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Change to a User Story → every module spec that references that US-ID is affected
    - Change to Acceptance Criteria → the module spec(s) where those AC entries appear are affected
    - Change to Phases & Milestones → status.md Phase Plan section is affected
+   - Change to Adopted Conventions → production.md Shared Conventions is affected (copy the entry verbatim, keeping its ID)
+   - A PM Updates entry that answers your earlier `[AMBIGUITY]`/`[CONFLICT]`/`[BLOCKER]` questions → each file holding one of the listed markers is affected
    - Addition of a new module → a new spec.md must be created
    - Removal of a module → the spec.md must be noted (not deleted)
 
@@ -40,7 +42,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Do not rewrite sections that are unaffected by the change.
    - Do not alter formatting, wording, or structure of unaffected sections.
    - Carry forward any existing AMBIGUITY or CONFLICT markers that are still valid.
-   - Remove AMBIGUITY or CONFLICT markers only if the PRD change explicitly resolves them.
+   - Remove AMBIGUITY or CONFLICT markers only if the PRD change explicitly resolves them — a PM Updates entry listing the marker it resolves counts. Replace the marker with the PRD's new text, verbatim.
    - Add new AMBIGUITY or CONFLICT markers if the change introduces new vagueness or contradictions.
    - Update "Last Synced from PRD Revision" to the new PRD revision number.
 
@@ -51,6 +53,8 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Copy `templates/module-spec.tmpl.md` to `modules/<dir>/spec.md`.
    - Fill all sections following the same rules as initial-sync.md step 3. Remove all HTML template comments from the completed spec.
    - Add the new module as a row in production.md's Module Index table (MOD-ID, Module Name, Directory, Description).
+   - Create `modules/<dir>/status.md` and generate `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md` exactly as initial-sync.md step 3 describes (template frontmatter `tools` and `model` copied unchanged).
+   - In your handoff message, tell the human to restart Claude Code before running the new agents, so they load.
 
 6. **If the change removes a module: note the removal — do NOT delete the file**
 
@@ -108,7 +112,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
     - Re-run verify-sync.sh.
     - Repeat until verify-sync.sh exits 0.
 
-    Do not declare the delta sync complete until verify-sync.sh exits 0.
+    Do not declare the delta sync complete until verify-sync.sh exits 0 — with the same exception as initial-sync.md: if every remaining `[FAIL]` concerns a module carrying a `[BLOCKER]` from this sync, record Last Action `result: needs-pm` and commit.
 
 ---
 
@@ -117,5 +121,6 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
 When verify-sync.sh exits 0, the delta sync is complete. Commit with:
 
 ```
-git add production.md modules/ status.md && git commit -m "doc-sync(delta): <one-line summary of what changed>"
+git add project-planning/ .claude/agents/   # generated wrappers live in .claude/agents/
+git commit -m "doc-sync(delta): <one-line summary of what changed>"
 ```

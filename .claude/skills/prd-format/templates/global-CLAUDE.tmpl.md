@@ -9,11 +9,9 @@
 
 ## When this applies
 
-Check the current project root for:
-- `.claude/agents/pm.md`, `.claude/agents/doc-sync.md`, `.claude/agents/tech-lead.md` (or similarly named specialized agents), AND
-- a `project-planning/` directory (`prd.md`, `production.md`, `status.md`, `modules/`)
+Check the current project root for a `project-planning/` directory containing `status.md` (and usually `prd.md`, `production.md`, `modules/`). The framework's agents (`pm`, `doc-sync`, `tech-lead`, ...) are normally installed in `~/.claude/agents/`, not in the project, so do not require them in the project's own `.claude/agents/`.
 
-If both are present, this project uses the multi-agent development framework (PM / Doc-Sync / Tech Lead / Engineer / QA) and the rule below applies. If neither is present, this file has nothing to do with the current project — proceed normally.
+If `project-planning/status.md` is present, this project uses the multi-agent development framework (PM / Doc-Sync / Tech Lead / Engineer / QA) and the rule below applies. Otherwise this file has nothing to do with the current project — proceed normally.
 
 If the project also has its own `CLAUDE.md` with a "Coordinator Instructions" section, follow that instead — it has the full, project-specific ownership table. Treat this file only as the fallback for when that one is missing.
 

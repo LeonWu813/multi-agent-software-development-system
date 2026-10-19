@@ -21,7 +21,8 @@ Translate prd.md content into downstream planning docs with perfect fidelity. Re
 <mapping_rules>
 - `prd.md` Project Overview + Tech Stack + Architecture Overview → `production.md`
 - `prd.md` Module Breakdown (per module) + related User Stories full text + Acceptance Criteria → `modules/<dir>/spec.md` (where `<dir>` is the directory name from the `## Module Map` in `status.md`)
-- `prd.md` Phases & Milestones → `status.md` Phase Plan section
+- `prd.md` Phases & Milestones → `status.md` Phase Plan section (and `## Current Phase` = first phase, initial sync only)
+- `prd.md` Adopted Conventions (CONV-NNN, verbatim) + `status.md` Build Config → `production.md` Shared Conventions
 - `prd.md` explicit cross-module integration/conditional-mounting requirements (always stated as their own AC, never inferred from a bare `Dependencies: MOD-X` field) → `modules/<dir>/spec.md` Integration Points section, copied verbatim into both affected modules' specs. See `references/translation-rules.md` "Integration Points Rule" — this is the one mapping rule with a forced-handoff exception when it can't be satisfied.
 </mapping_rules>
 
@@ -49,5 +50,5 @@ Translate prd.md content into downstream planning docs with perfect fidelity. Re
 - No module's Integration Points section was filled in by inferring from a bare `Dependencies` field — every entry traces to an explicit PRD integration requirement, or is marked `[AMBIGUITY]` with the forced-PM handoff (see translation-rules.md)
 - All HTML template comments (`<!-- ... -->`) removed from production.md and every module spec
 - Sync report written to status.md Sync Reports section
-- Git commit: `git add production.md modules/ status.md && git commit -m "doc-sync(<initial|delta|trivial>): <summary>"`
+- Git commit: `git add project-planning/ .claude/agents/ && git commit -m "doc-sync(<initial|delta|trivial>): <summary>"`
 </success_criteria>

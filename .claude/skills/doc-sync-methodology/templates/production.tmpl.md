@@ -25,8 +25,10 @@ Do not add rows for technologies not mentioned in the PRD. -->
 
 ## Shared Conventions
 
-<!-- Populated by Doc-Sync during initial sync from the ## Build Config section of status.md
-     (which PM fills in during init by asking the user for the project's commands).
+<!-- Populated by Doc-Sync from two sources only:
+     1. The ## Build Config section of status.md (PM fills it in at finalize by asking the user).
+     2. Every CONV-NNN entry of the PRD's ## 9. Adopted Conventions, verbatim with its ID
+        (on initial sync, and on any delta sync that changes that section).
      Doc-Sync copies the Build, Lint, and Test values here exactly. Keys with blank values
      are omitted. self-check.sh and run-qa.sh read these exact key names to run automated checks.
 -->

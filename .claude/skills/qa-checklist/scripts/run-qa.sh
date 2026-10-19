@@ -78,7 +78,7 @@ else
 
   if [[ -z "$TEST_CMD" ]]; then
     warn "No test command found in $PRODUCTION_MD — skipping automated test run"
-    warn "Add a line like 'Test Command: npm test' to production.md to enable this check"
+    warn "Add a 'Test: <command>' line to status.md Build Config (Doc-Sync copies it to production.md) to enable this check"
   else
     info "Test command found: $TEST_CMD"
   fi

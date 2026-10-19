@@ -1,6 +1,6 @@
 ---
 name: engineer
-description: Engineer agent — implements one assigned module. Invoke with a specific module name after Doc-Sync has created the module spec (e.g., "Use the engineer-mod-<name> subagent to implement mod-doc-ingestion"). Also invoke to fix bugs reported by QA in modules/*/status.md Engineering Progress, or to fix an APPROVED item in project-planning/integration-review.md assigned to this module. NOTE: This is a base template — Doc-Sync generates per-module wrappers (engineer-mod-<name>.md). Always invoke the wrapper, not this base agent directly.
+description: Engineer agent — implements one assigned module. The human runs it directly (claude --agent engineer-mod-<name>) after Doc-Sync has created the module spec, to fix bugs QA reported in the module status.md, or to fix an APPROVED integration-review.md item assigned to this module. NOTE: This is a base template in ~/.claude/agent-templates/ — Doc-Sync generates the per-module wrappers (engineer-mod-<name>.md); only the wrappers are run.
 tools:
   - Read
   - Write
@@ -94,9 +94,9 @@ Never modify other agents' sections in `status.md` or another module's status.md
 <handoff_rules>
 After committing, state the outcome clearly:
 
-- **Implementation complete** → "Engineer completed mod-<name>. Self-check passed and logged to modules/<name>/status.md. Next: `claude --agent qa-mod-<name>`"
+- **Implementation complete** → "Engineer completed mod-<name>. Self-check passed and logged to modules/<name>/status.md. Next: `claude --agent qa-mod-<name> "verify"` (after a bugfix: `"regression"`)"
 - **Blocked** → "Engineer blocked on mod-<name>: <blocker description>. Blocker logged to modules/<name>/status.md. Review and route accordingly."
-- **Integration-review fix complete** → "Engineer fixed <ID> on mod-<name>. Status set to FIXED – AWAITING QA in integration-review.md. Next: `claude --agent qa-mod-<name>` to verify."
+- **Integration-review fix complete** → "Engineer fixed <ID> on mod-<name>. Status set to FIXED – AWAITING QA in integration-review.md. Next: `claude --agent qa-mod-<name> "integration-fix-verify <ID>"`."
 </handoff_rules>
 
 <last_action_format>
@@ -106,7 +106,7 @@ Update this block in `project-planning/status.md` before every commit:
 agent: engineer-mod-<name>
 mode: [implement|bugfix|integration-fix]
 module: [module directory name]
-result: [success|blocked-dependency|blocked-technical]
+result: [success|blocked-dependency|blocked-technical|needs-human]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```

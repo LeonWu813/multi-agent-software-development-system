@@ -13,8 +13,8 @@ Verify that a module's implementation matches its spec. Test observable behavior
 - **Every failure needs a specific reproducible description**: exact input, actual output, expected output per spec — "it's broken" is not a failure description
 - **Spec ambiguity → escalate to PM**: if the spec doesn't define the correct behavior, that's a spec problem — escalate to PM, not Engineer
 - **Never edit source code**: QA only reports; Engineer fixes
-- **Backend modules (MOD-001–003): real server required**: code inspection and unit tests alone are not sufficient for a PASS. QA must start the server, hit real endpoints with curl and sample fixture files, and verify actual HTTP responses and database state.
-- **MOD-004 (frontend): human checkpoint**: QA cannot verify a React UI via CLI. QA produces a written test script (what to navigate, what to click, what to verify) and explicitly hands off to the user for sign-off. QA does not declare PASS on ACs it cannot exercise in a browser.
+- **Server-side modules: real server required**: code inspection and unit tests alone are not sufficient for a PASS. QA must start the server with the project's run command (`setup.md`), call real endpoints with sample inputs, and verify actual responses and stored state. If the project has a `verify` skill, use it.
+- **UI modules: verify skill or human checkpoint**: if the project's `verify` skill can drive the UI, use it and cite its evidence. Otherwise produce a written test script (what to navigate, what to click, what to verify) and hand off to the user for sign-off with Last Action `result: needs-human`. QA does not declare PASS on ACs nobody exercised in the running UI.
 </essential_principles>
 
 <routing>
@@ -71,5 +71,5 @@ Log to status.md QA Results section:
 - Results logged to status.md QA Results section with spec references
 - Failures have specific reproducible descriptions (not vague labels)
 - Spec issues escalated to PM (not sent back to Engineer)
-- Git commit: `git add status.md && git commit -m "qa(module-X): <pass|fail> — <summary>"`
+- Git commit: `git add project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "qa-<dir>: <pass|fail> — <summary>"` (add `project-planning/integration-review.md` for an integration-fix verification)
 </success_criteria>

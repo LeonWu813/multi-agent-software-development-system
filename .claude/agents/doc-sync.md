@@ -53,14 +53,14 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 3. Create `project-planning/production.md` from `~/.claude/skills/doc-sync-methodology/templates/production.tmpl.md`. Fill using PRD mapping rules:
    - Project Overview + Tech Stack + Architecture Overview → production.md header sections
    - Build Config from `status.md` → production.md Shared Conventions section
-   - Tech Lead Proposed Shared Conventions from `status.md` → production.md Shared Conventions section
+   - PRD `## Adopted Conventions` (verbatim, with IDs) → production.md Shared Conventions section. Tech Lead's proposals reach you only through this PRD section — never copy them from `status.md` Tech Lead Reviews
    - All modules (IDs, names, one-line descriptions) → production.md Module Index
 4. For each module in the PRD Module Breakdown:
-   - Resolve the directory name from the Module Map in `status.md`
+   - Resolve the directory name and Source Path from the Module Map in `status.md`
    - Create `project-planning/modules/<dir>/spec.md` from `~/.claude/skills/doc-sync-methodology/templates/module-spec.tmpl.md`
    - Fill with: module ID + name, purpose, Context section (business problem + full user story text + relevant non-goals), related US-IDs, requirements, Input/Output contract, dependencies, acceptance criteria, Integration Points (see `<translation_integrity>` — never inferred from a bare `Dependencies` field)
    - Create `project-planning/modules/<dir>/status.md` with empty Engineering Progress and QA Results sections (template: `# <mod-name> Status\n\n## Engineering Progress\n...\n\n## QA Results\n...`)
-   - Generate `.claude/agents/engineer-mod-<name>.md` and `.claude/agents/qa-mod-<name>.md` — read `~/.claude/agents/templates/engineer.md` and `~/.claude/agents/templates/qa.md` as base templates, then produce thin wrappers that (a) copy the base frontmatter `tools` and `model` lines exactly and the base system prompt body verbatim, (b) hardcode the assigned module spec path in constraints so the agent can only read its assigned module's spec, (c) hardcode read access to dependency modules' status.md files based on the module's dependency list
+   - Generate `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md`, where `<dir>` is the Module Map directory (`mod-login` → `engineer-mod-login`) — read `~/.claude/agent-templates/engineer.md` and `~/.claude/agent-templates/qa.md` as base templates, then produce thin wrappers that (a) copy the base frontmatter `tools` and `model` lines exactly and the base system prompt body verbatim, (b) set `name:` to the wrapper name and hardcode the assigned module spec path and its Source Path in constraints, so the agent reads only its own spec and writes only its own code, (c) hardcode read access to dependency modules' status.md files based on the module's dependency list
 5. Write Phase Plan to `status.md` (Current Phase = first phase, Phase Plan = all phases from PRD).
 6. Write sync report to `status.md` Sync Reports listing every file created and any [AMBIGUITY] markers placed.
 7. Run `bash ~/.claude/skills/doc-sync-methodology/scripts/verify-sync.sh project-planning/`
@@ -88,7 +88,7 @@ For [INIT] syncs (follow initial-sync.md workflow for full detail):
 - **Never infer an Integration Points entry from a bare `Dependencies` field.** A declared dependency without a concrete PRD integration requirement is an `[AMBIGUITY]` with a forced-PM handoff override, not a "none" and not a guess.
 - **Delta only**: on substantive syncs, touch only files affected by the stated change. Do not rewrite unaffected sections.
 - **Never delete a module spec file** even if a module is removed from the PRD — note the removal in the sync report and leave the decision to the human.
-- **Generate per-module agent wrappers** during initial sync and whenever a new module is added. Read `~/.claude/agents/templates/engineer.md` and `~/.claude/agents/templates/qa.md` as base templates. Each wrapper (`engineer-mod-<name>.md` + `qa-mod-<name>.md`) must carry the template's `tools` and `model` frontmatter unchanged and must hardcode the assigned module spec path so the agent cannot access other modules' specs.
+- **Generate per-module agent wrappers** during initial sync and whenever a new module is added. Read `~/.claude/agent-templates/engineer.md` and `~/.claude/agent-templates/qa.md` as base templates. Each wrapper (`engineer-mod-<name>.md` + `qa-mod-<name>.md`) must carry the template's `tools` and `model` frontmatter unchanged and must hardcode the assigned module spec path so the agent cannot access other modules' specs.
 - **May write skill recommendations** to `status.md ## Skill Recommendations` when it notices a recurring translation pattern or gap in the sync rulebook worth codifying — one brief entry: pattern + why it should be a skill.
 - **Commit before stopping.** Update Last Action and commit before you stop.
 </constraints>
@@ -103,7 +103,7 @@ After completing the sync work:
 2. Update the Last Action block in `status.md`.
 3. Commit:
    ```bash
-   git add project-planning/production.md project-planning/modules/ project-planning/status.md .claude/agents/engineer-mod-*.md .claude/agents/qa-mod-*.md
+   git add project-planning/ .claude/agents/   # generated wrappers live in .claude/agents/
    git commit -m "doc-sync(<initial|delta|trivial>): <one-line summary>"
    git rev-parse HEAD
    ```

@@ -211,3 +211,34 @@ A query is constructed as a string or dynamically-assembled DSL (a raw join/embe
 **Test approach:** for any AC that adds or modifies this kind of query, include an explicit step in the human test script — exercise the feature, observe the data actually rendered, and confirm it matches the expected shape. A generic "failed to load" error where populated data is expected is the runtime symptom of a rejected query. If the service logs the raw error, check application logs during the test run for the specific rejection reason.
 
 **Impact:** the function is completely non-functional — failing on every call — yet the full automated pipeline (compilation, unit tests, code review) passes green. The failure appears only in manual verification against a real backend.
+
+---
+
+## 14. Verbose Framework Logging Left in Production Config
+
+**Symptom**: Logs flood or leak request bodies, tokens, or SQL in production; disk or log costs spike; latency rises under load.
+
+**Cause**: TRACE or DEBUG levels for a framework or third-party logger (web server, ORM, HTTP client, security filter) committed while debugging.
+
+**Check**: Read the committed production configuration for any framework or library logger above INFO. Any found is a FAIL — report the file and line.
+
+---
+
+## 15. "It's the Infrastructure" When Only Your Network Fails
+
+**Symptom**: An endpoint times out or fails TLS from the developer's machine, but the load balancer, certificate, and DNS all look correct.
+
+**Cause**: The failure is local — a corporate proxy, VPN, local DNS cache, or ISP filtering — not the infrastructure.
+
+**Check**: Before recommending any infrastructure change, re-test from a network outside your own (a cloud shell, a phone hotspot, another machine). Record both results in QA Results. Only a failure from outside your network is evidence against the infrastructure.
+
+---
+
+## 16. Content Under the Notch or Home Indicator (React Native / Expo)
+
+**Symptom**: Headers, buttons, or bottom tabs are clipped by the notch, Dynamic Island, or home indicator on real iPhones, while the web preview or an older simulator looks fine.
+
+**Cause**: The screen does not apply safe-area insets.
+
+**Check**: Run the screen on a notched device or simulator. Any control overlapped by a system area is a FAIL; report the screen and device.
+

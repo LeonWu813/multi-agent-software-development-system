@@ -165,3 +165,11 @@
 ---
 
 <!-- Add further AC entries incrementing the ID. Ensure every US-XXX listed in Section 3 maps to at least one AC here. -->
+
+---
+
+## 9. Adopted Conventions
+
+<!-- The one section where "how" is allowed. Each entry is a shared convention Tech Lead proposed in status.md Tech Lead Reviews and the user approved; PM copies it here, citing that review, as a PRD change. Doc-Sync copies every entry verbatim into production.md Shared Conventions. Leave empty until there is one. Format:
+**CONV-001**: [The convention, stated so an Engineer can follow it.] (Proposed: Tech Lead Reviews <date>; approved: <date>)
+-->

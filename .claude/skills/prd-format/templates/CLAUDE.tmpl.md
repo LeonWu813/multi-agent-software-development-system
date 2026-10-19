@@ -38,6 +38,8 @@ Never call Edit, Write, or MultiEdit on any artifact in the table above outside 
 
 **The "small and obvious" trap.** The most common violation is a one-line fix you can see clearly. This is not an exception — it is the highest-risk case because it feels safe. The size of the change is irrelevant. One line still requires delegation. "I can see exactly what needs changing" is not a reason to skip the owner; it is the prompt that should trigger the hardest pause.
 
+**Every PM tag goes through Doc-Sync.** After PM records `[INIT]`, `[SUBSTANTIVE]`, or `[TRIVIAL]` — trivial included — the next agent is `doc-sync` (after Tech Lead, if the change is architectural), before any Engineer or QA run. Never tell PM or the human to skip it, and never substitute an instruction to an Engineer for a spec update: the Engineer and QA work from `spec.md`, so a change that isn't synced isn't built or tested.
+
 **Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Give the human the owning agent's command, with your diagnosis and the exact location of the problem.
 
 ## What this looks like in practice

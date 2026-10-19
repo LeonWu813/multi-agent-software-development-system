@@ -1,6 +1,6 @@
 ---
 name: qa
-description: QA agent — verifies one module against its spec. Invoke after Engineer completes a module implementation (functional-test workflow), after Engineer fixes bugs to re-verify (regression-test workflow), or after Engineer fixes an approved project-planning/integration-review.md item (same regression-test workflow, verifying against that item instead of a spec AC). Provide the module name when invoking (e.g., "Use the qa-mod-<name> subagent to verify mod-doc-ingestion"). NOTE: This is a base template — Doc-Sync generates per-module wrappers (qa-mod-<name>.md). Always invoke the wrapper, not this base agent directly.
+description: QA agent — verifies one module against its spec. The human runs it directly with one word naming the workflow — claude --agent qa-mod-<name> "verify" (first verification), "regression" (after a bugfix), or "integration-fix-verify <ID>" (after an approved integration-review fix). NOTE: This is a base template in ~/.claude/agent-templates/ — Doc-Sync generates the per-module wrappers (qa-mod-<name>.md); only the wrappers are run.
 tools:
   - Read
   - Write
@@ -124,7 +124,7 @@ Update this block in `project-planning/status.md` before every commit:
 agent: qa-mod-<name>
 mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
-result: [success|bugs-found|spec-issue|repeat-failure]
+result: [success|bugs-found|spec-issue|repeat-failure|needs-human]
 commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```

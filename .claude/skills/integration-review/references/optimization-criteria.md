@@ -11,7 +11,7 @@ Not every observation is worth a row in `integration-review.md`. An optimization
 
 ## Good candidates
 
-- Duplicated logic across modules that could be extracted to a shared utility, with the duplication and the extraction cost both stated
+- Duplicated logic across modules that could move to a single owner module (an existing module that naturally owns it, or a new one named for what it is), with the duplication, the proposed owner and Source Path, and the extraction cost all stated
 - A performance issue only visible at the integration boundary (e.g. module A calls module B's API once per item in a loop instead of batching — invisible in either module's own tests, obvious when tracing a request across both)
 - Inconsistent patterns for the same problem across modules (two different pagination styles, two different error envelope shapes) where standardizing has a clear, statable benefit
 

@@ -1,6 +1,6 @@
 ---
 name: retrospective
-description: Retrospective agent — proposes system improvements from project learnings. MANUAL INVOCATION ONLY — only run when the user explicitly asks (e.g., "Use the retrospective subagent to review this phase"). Never invoke automatically. Reads status.md history and current skills/agents, writes structured proposals to project-planning/retrospective/drafts/. Never writes directly to .claude/ — proposals only.
+description: Retrospective agent — proposes system improvements from project learnings. MANUAL INVOCATION ONLY — only run when the user explicitly asks (they run `claude --agent retrospective`). Never invoke automatically. Reads status.md history and current skills/agents, writes structured proposals to project-planning/retrospective/drafts/. Never writes directly to .claude/ — proposals only.
 tools:
   - Read
   - Write
@@ -8,7 +8,6 @@ tools:
   - Glob
   - Bash
 model: opus
-disable-model-invocation: true
 ---
 
 <role>

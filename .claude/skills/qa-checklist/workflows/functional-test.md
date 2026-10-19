@@ -45,7 +45,7 @@ Example failure entry:
 FAIL setup.md: setup.md states dev database on port 5432 but docker-compose.yml maps db_dev to host port 5434
 ```
 
-Skip this step for MOD-004 (frontend) — it has no infrastructure config.
+Skip this step for modules with no infrastructure config of their own (e.g. a UI-only module).
 
 ---
 
@@ -90,18 +90,17 @@ Do not interpret a green automated run as "done" — automated tests rarely cove
 
 ---
 
-### 5a. Backend modules only (MOD-001–003): live server verification
+### 5a. Server-side modules: live server verification
 
 After the automated suite passes, verify real HTTP behavior:
 
-1. Confirm `.env` exists and `DATABASE_URL_TEST` is set (file presence only — do not read or log contents)
-2. Start the server:
+1. Confirm `.env` exists if `setup.md` requires one (file presence only — do not read or log contents)
+2. Start the server with the run command from `setup.md` (or the project's `verify` skill), in the background, and wait until it answers:
    ```bash
-   npm run dev &
+   <run command from setup.md> &
    SERVER_PID=$!
-   sleep 3
    ```
-3. Run curl against each endpoint defined in the module's Input/Output Contract, using real sample fixture files (a small PDF and a `.txt` file). Capture the full response body and HTTP status code for each call.
+3. Call each endpoint defined in the module's Input/Output Contract with realistic sample inputs. Capture the full response body and status code for each call.
 4. Verify database state after write operations: query the test database directly to confirm records were created, updated, or deleted as expected.
 5. Stop the server:
    ```bash
@@ -114,18 +113,16 @@ Record each curl call, its response, and the observed database state in status.m
 
 ---
 
-### 5b. MOD-004 (frontend): human checkpoint
+### 5b. UI modules: verify skill or human checkpoint
 
-QA cannot verify a React UI via CLI tools alone. Instead:
+If the project's `verify` skill can drive the UI, run each AC through it and record its evidence. Otherwise:
 
 1. Run the automated test suite and integration tests as usual.
 2. Produce a written test script in status.md under QA Results covering every AC:
-   - AC-023: navigate between each view — describe which links/buttons to click and what URL or content change confirms navigation happened without a full reload
-   - AC-024: submit an AI request — describe where to look for the loading indicator appearing within 300ms, and the response replacing it
-   - AC-025: trigger an API error — describe how to simulate a failure and what the non-blocking notification should say
-   - AC-026: resize the browser to 375px width — describe which views and controls to check for clipping or horizontal scroll
-3. End with: "**Human sign-off required.** Complete the test script above at 375px and full-width viewports and confirm each AC passes before marking MOD-004 as QA PASS."
-4. Do not write a PASS verdict for MOD-004 until the user explicitly confirms.
+   - for each AC: the exact steps (what to open, click, or type), the expected result, and what counts as a failure
+   - include any viewport, device, or OS condition the AC names
+3. End with: "**Human sign-off required.** Complete the test script above and confirm each AC passes before this module is marked QA PASS."
+4. Record Last Action `result: needs-human` and stop. When the user reports the results, record PASS or the failures as usual.
 
 ---
 
@@ -175,7 +172,7 @@ Write your routing decision next to each failure in status.md. Do not send spec 
 When all steps are done:
 
 ```bash
-git add status.md && git commit -m "qa(module-X): <pass|fail> — <one-line summary>"
+git add project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "qa-<dir>: <pass|fail> — <one-line summary>"
 ```
 
 If any failures were found, do not mark the module as passing. The summary should reflect the actual outcome: `qa(module-X): fail — AC-003 rejects valid input, AC-007 crashes on empty string`.

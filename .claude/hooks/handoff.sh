@@ -67,7 +67,12 @@ fi
         esac ;;
     tech-lead)
         case "$MODE" in
-            pre-sync-review)        NEXT="Read the re-review in status.md Tech Lead Reviews. Changes requested: claude --agent pm  (iterate). You approve the PRD: claude --agent pm  (finalize)" ;;
+            pre-sync-review)
+                if [ "$RESULT" = "setup-changed" ]; then
+                    NEXT="Setup changed (see Setup Changed in status.md Tech Lead Reviews). Redo the listed setup.md steps, then: claude --agent tech-lead  (say \"Setup is complete\")"
+                else
+                    NEXT="Read the re-review in status.md Tech Lead Reviews. Changes requested: claude --agent pm  (iterate). You approve the PRD: claude --agent pm  (finalize)"
+                fi ;;
             init-review)            NEXT="Complete every step in project-planning/setup.md, then: claude --agent tech-lead  (say \"Setup is complete\")" ;;
             setup-confirmation)     NEXT="claude --agent pm  # incorporate Tech Lead feedback, then finalize the PRD" ;;
             change-review)          NEXT="Read the review in status.md Tech Lead Reviews. Accept as-is: claude --agent doc-sync. PRD needs revising: claude --agent pm  (change mode)" ;;

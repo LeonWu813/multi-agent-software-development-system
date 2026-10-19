@@ -75,7 +75,7 @@ If you find a new failure in adjacent logic, log it as a new `FAIL` entry distin
 
 Append a new dated block to the QA Results section — do not overwrite the original run. The new block must:
 
-- Be clearly labeled as a regression test run (e.g. `## QA Run 2 — Regression — 2026-05-13`)
+- Be clearly labeled as a regression test run with a level-3 heading inside `## QA Results` (e.g. `### QA Run 2 — Regression — 2026-05-13`) — never a new `##` section
 - State which bug was being re-verified (reference the original AC-NNN)
 - Record `REGRESSION PASS` or `REGRESSION FAIL` for the original bug
 - Record pass/fail for every other item that was re-tested
@@ -91,7 +91,7 @@ Distinguishing runs matters. If a second Engineer fix is needed, they need to se
 When all steps are done:
 
 ```bash
-git add status.md && git commit -m "qa(module-X): <pass|fail> — regression test, <one-line summary>"
+git add project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "qa-<dir>: <pass|fail> — regression test, <one-line summary>"
 ```
 
 Examples:
