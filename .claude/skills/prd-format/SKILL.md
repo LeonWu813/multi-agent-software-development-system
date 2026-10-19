@@ -63,7 +63,7 @@ Run this checklist on the complete PRD before every handoff. Every item must pas
 **If this is the initial creation (finalization — ready for Doc-Sync handoff)**
 - [ ] PM Updates entry tagged `[INIT]` in `status.md`
 - [ ] Build Config populated in `status.md`
-- [ ] Module Map populated in `status.md` with all MOD-IDs, directory names, and module names
+- [ ] Module Map populated in `status.md` with all MOD-IDs, directory names, module names, and source paths (no source path claimed by two modules)
 - [ ] Phase Plan section in `status.md` is left blank — Doc-Sync populates it during the initial sync; PM must not pre-fill it
 - [ ] Current Phase section in `status.md` is left blank — same reason as above
 - [ ] `## Skill Recommendations` section is present in `status.md` (scaffold creates it; PM must not remove it)
@@ -101,11 +101,12 @@ These edits happen during production: change requests from the user, escalations
 4. Note in `status.md` if the change affects module boundaries, dependencies, or the phase plan
 5. Ask the user: is this change **trivial** (wording-only, no structural impact on modules/dependencies/phases) or **substantive** (affects scope, modules, dependencies, or phases)? Tag the change summary in `status.md` accordingly with `[TRIVIAL]` or `[SUBSTANTIVE]` — this determines whether Doc-Sync runs the full delta-sync or a lightweight passthrough
 6. Re-run the full quality checklist on the updated PRD before declaring complete
-7. If the change adds a new module: propose a directory name, confirm with user, create the directory, and update the Module Map in `status.md` — do this before handing off to Doc-Sync. Doc-Sync will create `modules/<new-mod>/status.md` and generate `engineer-mod-<name>.md` + `qa-mod-<name>.md` during the sync.
+7. If the change adds a new module: propose a directory name and source path, confirm with user, create the directory, and update the Module Map in `status.md` — do this before handing off to Doc-Sync. Doc-Sync will create `modules/<new-mod>/status.md` and generate `engineer-mod-<name>.md` + `qa-mod-<name>.md` during the sync.
 </change_protocol>
 
 <quick_start>
 **New PRD — Drafting Phase**
+0. Run `pstack:sharpen` on the request, then restate the user's goal in two or three sentences and let them correct it
 1. Run `scripts/init-project.sh <project-root>` to scaffold `project-planning/`
 2. Read `templates/prd.tmpl.md` — copy it to `project-planning/prd.md`
 3. Fill every section; mark unresolved items `[DECISION NEEDED: <description>]`
@@ -131,11 +132,12 @@ These edits happen during production: change requests from the user, escalations
       MOD-003 → mod-notifications (Notifications)
       ```
    d. Once user confirms, create each directory: `mkdir -p project-planning/modules/mod-<name>/`
-   e. Write the Module Map to `status.md` under `## Module Map`:
+   e. For each module, also propose a **source path** — the code it owns (e.g. `src/login/`, or several paths separated by commas). Code used by two or more modules belongs to exactly one of them: an existing module that naturally owns it, or a module created for it and named for what it is (`mod-header`, not `mod-shared`). Every other module that uses it lists that owner under Dependencies, and the owner comes earlier in the Phase Plan.
+   f. Write the Module Map to `status.md` under `## Module Map`:
       ```
-      | MOD-ID  | Directory        | Module Name    |
-      |---------|------------------|----------------|
-      | MOD-001 | mod-login        | User Login     |
+      | MOD-ID  | Directory        | Module Name    | Source Path              |
+      |---------|------------------|----------------|--------------------------|
+      | MOD-001 | mod-login        | User Login     | src/login/               |
       ```
 3. **Verify environment setup before tagging [INIT]**: Read `project-planning/status.md` and check for a Tech Lead Setup Confirmation entry under `## Tech Lead Reviews` (a block starting with `### Setup Confirmation`).
    - If a Setup Confirmation entry **exists**: proceed to step 4.

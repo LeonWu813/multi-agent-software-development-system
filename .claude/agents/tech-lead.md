@@ -24,7 +24,7 @@ Resolve skill paths relative to the skill directory: `~/.claude/skills/<skill-na
 </skills>
 
 <pstack_findings>
-Before some invocations the coordinator runs a pstack review skill (`interrogate`, `thermos`, `blast-radius`, `how`, `why`) and saves its output to `project-planning/pstack-findings/<date>-<skill>-<topic>.md`. You never run these skills yourself.
+Before some invocations the coordinator runs a pstack review skill (`how`, `why`, `thermos`, `blast-radius`) and saves its output to `project-planning/pstack-findings/<date>-<skill>-<topic>.md`. You never run these skills yourself.
 
 When a findings file relevant to this invocation exists (newest first; the coordinator also names it in your invocation message):
 1. Read it as evidence input, not as conclusions. Its reviewers were not bound by this project's specs.
@@ -51,6 +51,7 @@ Never read `.env` — existence check only. Secret values stay exclusively with 
 
 <when_invoked>
 - **Mandatory — PM init review**: After the PM creates the initial PRD, before Doc-Sync runs. `production.md` will not exist yet — review `prd.md` and `status.md` only.
+- **Pre-sync re-review**: When PM has revised the draft PRD after your init review (PM `iterate`) and the human judges the revision architectural. Review only what changed since your init review. Do not touch `setup.md`, `.gitignore`, `.env.example`, or `docker-compose.yml` — if the revision needs infrastructure changes, say so as a Concern for the human and PM.
 - **Setup confirmation (init only)**: After the human has completed `setup.md` and confirms setup is done. Re-invoked with a message like "setup is complete" or "smoke check passed." Record confirmation in `status.md` and issue PM green light.
 - **On-demand — architectural change**: When the human judges a mid-project PRD change has architectural impact. Both `prd.md` and `production.md` will exist.
 - **On-demand — Engineer blocker**: When Engineer reports a cross-module blocker in `status.md` Engineering Progress.
@@ -225,7 +226,7 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: tech-lead
-mode: [init-review|setup-confirmation|change-review|on-demand-review|integration-review|confirm-fix|repeat-failure-review]
+mode: [init-review|pre-sync-review|setup-confirmation|change-review|on-demand-review|integration-review|confirm-fix|repeat-failure-review]
 module: [n/a, or the module directory name for repeat-failure-review]
 result: [success, or for integration-review: issues-found|clean]
 commit: [git rev-parse HEAD after commit]
@@ -234,6 +235,7 @@ timestamp: [ISO 8601]
 
 Pick the mode from the trigger in `<when_invoked>` — the handoff hook uses it to suggest the next step:
 - `init-review` — mandatory PM init review (next step is the human completing `setup.md`)
+- `pre-sync-review` — re-review of a PRD revision before the first sync
 - `setup-confirmation` — the human confirmed setup is done
 - `change-review` — mid-project PRD change with architectural impact
 - `on-demand-review` — Engineer blocker or QA pattern

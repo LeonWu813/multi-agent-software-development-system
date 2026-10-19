@@ -100,13 +100,14 @@ commit:
 timestamp:
 
 ## Current Phase
+<!-- Set by Doc-Sync at initial sync; PM advances it at each checkpoint. -->
 
 
 ## Phase Plan
 
 
 ## Build Config
-<!-- Filled by PM during init. PM asks the user for the project's build, lint, and test
+<!-- Filled by PM at finalize. PM asks the user for the project's build, lint, and test
      commands and writes them here. Doc-Sync copies these to production.md Shared Conventions
      during the initial sync. Leave a value blank if that step doesn't apply. -->
 
@@ -123,25 +124,24 @@ Test:
 ## Sync Reports
 
 
-## Engineering Progress
-
-
-## QA Results
-
-
 ## Decisions
 
 
 ## Module Map
 
-<!-- Filled by PM after user confirms module directory names.
+<!-- Filled by PM at finalize, after the user confirms directory names and source paths.
+     Source Path is the code this module owns: the Engineer's write scope, the self-check
+     boundary, and what pstack-guard.sh enforces. Shared code belongs to exactly one module.
      Format:
-     | MOD-ID  | Directory        | Module Name    |
-     |---------|------------------|----------------|
-     | MOD-001 | mod-login        | User Login     |
+     | MOD-ID  | Directory        | Module Name    | Source Path              |
+     |---------|------------------|----------------|--------------------------|
+     | MOD-001 | mod-login        | User Login     | src/login/               |
 -->
 
 ## Checkpoint History
+
+
+## Skill Recommendations
 
 EOF
   created "$STATUS_DEST"

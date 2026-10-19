@@ -15,6 +15,9 @@ INPUT=$(cat)
 
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
 [ -z "$CWD" ] && CWD="$(pwd)"
+# Resolve the project root, so a session that ran `cd src` is still guarded
+ROOT=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)
+[ -n "$ROOT" ] && [ -f "$ROOT/project-planning/status.md" ] && CWD="$ROOT"
 [ -f "$CWD/project-planning/status.md" ] || exit 0  # not a dev-team-agent project
 
 AGENT=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null)
@@ -23,7 +26,7 @@ AGENT=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)
 
 case "$AGENT" in
-    pm)                      ALLOWED="prd-format pstack:unslop pstack:technical-writing" ;;
+    pm)                      ALLOWED="prd-format pstack:sharpen pstack:unslop pstack:technical-writing" ;;
     engineer|engineer-mod-*) ALLOWED="coding-conventions engineer-checklist pstack:tdd pstack:deslop pstack:typescript-best-practices" ;;
     qa|qa-mod-*)             ALLOWED="qa-checklist verify" ;;
     tech-lead|doc-sync|retrospective) ALLOWED="" ;;
@@ -45,7 +48,8 @@ fi
 
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' 2>/dev/null)
 [ -z "$FILE" ] && exit 0
-case "$FILE" in /*) ;; *) FILE="$CWD/$FILE" ;; esac
+ORIG_CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
+case "$FILE" in /*) ;; *) FILE="${ORIG_CWD:-$CWD}/$FILE" ;; esac
 REAL_FILE=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$FILE" 2>/dev/null || echo "$FILE")
 REAL_CWD=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$CWD" 2>/dev/null || echo "$CWD")
 

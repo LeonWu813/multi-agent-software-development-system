@@ -725,18 +725,17 @@ project-planning/                                   # Created by PM via init-pro
 
 ### pstack Steps (coordinator-run, before certain handoffs)
 
-Agents never start other agents. Where a handoff benefits from a multi-agent pstack review, the coordinator runs it first in a regular session, saves the output to `project-planning/pstack-findings/`, commits it, and names the file when invoking the next agent. The project `CLAUDE.md` ("Required pstack steps") is the source of truth; `handoff.sh` repeats the step in its message.
+The human runs every framework agent directly (`claude --agent <name>`); agents never start other agents. Where a handoff benefits from a multi-agent pstack review, the coordinator runs it first in its own session, saves the output to `project-planning/pstack-findings/`, commits it, and tells the human which agent to run next and which findings file to mention. The project `CLAUDE.md` ("Required pstack steps") is the source of truth; `handoff.sh` repeats the step in its message.
 
 | Handoff point | pstack step | Then |
 |---|---|---|
-| Before PM init or a major change | `sharpen`, `in-your-own-words` (with the human) | `pm` |
-| PM change with architectural impact | `interrogate` | `tech-lead` |
-| QA pass, last module of the phase | `thermos` | `tech-lead` integration review |
-| Approved integration fix touching shared code | `blast-radius` | `tech-lead` or `engineer-mod-<name>` |
-| QA repeat-failure | `how` + `why` | `tech-lead` repeat-failure review |
-| First runnable module passes QA (human approves) | `create-verification-skill` | QA uses `verify` from then on |
+| PM change with architectural impact | `how` on the affected code | `tech-lead` change review |
+| QA pass, last module of the phase | `thermos` (diff from the last checkpoint commit, phase 1: `doc-sync(initial)`, limited to the phase's Source Paths) | `tech-lead` integration review |
+| Approved integration fix changing code another module depends on | `blast-radius` (probe scripts outside the project, no arena) | `tech-lead` or `engineer-mod-<name>` |
+| QA repeat-failure, first escalation of that AC | `how` + `why` | `tech-lead` repeat-failure review |
+| Phase 1, app runs, human approves | `create-verification-skill` | QA uses `verify` from then on |
 
-Findings are delivered, never applied: Tech Lead checks each one against the code and records which it accepted or rejected, the human decides, and the owner changes the file.
+PM runs `pstack:sharpen` itself at the start of init. Findings are delivered, never applied: Tech Lead checks each one against the code and records which it accepted or rejected, the human decides, and the owner changes the file.
 
 ### Init Flow (once per project)
 

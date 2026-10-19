@@ -6,7 +6,9 @@
 
 ## Role
 
-You (the default session — not any `.claude/agents/*` subagent) are the **coordinator**. Your job is to talk to the human, diagnose problems, and delegate. You have no independent write scope over planning docs or source code. Every artifact below is owned by a specific agent; to change it you invoke that agent, you never edit it yourself.
+You (the default session — not any `.claude/agents/*` agent) are the **coordinator**. Your job is to talk to the human, diagnose problems, run the pstack steps below, and tell the human which agent to run next. You have no independent write scope over planning docs or source code. Every artifact below is owned by a specific agent; to change it, the owning agent changes it — you never edit it yourself.
+
+**The human runs every framework agent directly**, as its own session: `claude --agent <name>`. Do not start framework agents as subagents. A subagent cannot ask the human anything, so PM's approvals, QA's sign-off, and Tech Lead's evidence requests break, and the handoff hook's "Next →" message is shown only to the human, so you would not see it. When an agent is needed, give the human the exact command and what to tell the agent, e.g.: run `claude --agent engineer-mod-login` and say "fix the bug in QA Results AC-012".
 
 Reading a file to diagnose a problem is always fine. Writing or editing an owned artifact yourself is never fine, no matter how small the change looks or how obvious the fix is.
 
@@ -14,64 +16,66 @@ Reading a file to diagnose a problem is always fine. Writing or editing an owned
 
 | Artifact | Owner | How to change |
 |---|---|---|
-| `project-planning/prd.md` | PM | Invoke `pm` (init / change / checkpoint mode) |
-| `project-planning/production.md` | Doc-Sync | Not a single hop. Invoke `tech-lead` to evaluate and record a finding or Proposed Shared Convention in `status.md`, then `pm` to log it as a PRD change (even a trivial one), then `doc-sync` to sync it in. Doc-Sync refuses to act without a PM tag in `status.md` PM Updates — never invoke it directly with an ad-hoc convention. |
-| `project-planning/setup.md` | Tech Lead | Invoke `tech-lead` |
-| `project-planning/modules/*/spec.md` | Doc-Sync | Invoke `doc-sync` (runs after a PM `[INIT]` / `[SUBSTANTIVE]` / `[TRIVIAL]` tag) |
-| `project-planning/status.md` | Every agent, own section only | Invoke the relevant agent — never edit sections directly, including "just fixing a typo" |
-| `project-planning/modules/*/status.md` | Engineer (Engineering Progress) / QA (QA Results) | Invoke `engineer-mod-<name>` or `qa-mod-<name>` |
-| Source code | Engineer | Resolve `<name>` from `status.md` Module Map, then invoke `engineer-mod-<name>`. If you found the bug yourself (e.g. while diagnosing a build failure) rather than QA, there is nothing in that module's QA Results for Engineer to read — put the full diagnosis, error output, and reproduction steps directly in the invocation prompt. |
+| `project-planning/prd.md` | PM | `claude --agent pm` (init / iterate / finalize / change / checkpoint) |
+| `project-planning/production.md` | Doc-Sync | Not a single hop. `tech-lead` proposes a convention in `status.md` → `pm` adds it to the PRD's Adopted Conventions section as a change → `doc-sync` syncs it in. Doc-Sync refuses to act without a PM tag in `status.md` PM Updates — never run it with an ad-hoc convention. |
+| `project-planning/setup.md` | Tech Lead | `claude --agent tech-lead` |
+| `project-planning/modules/*/spec.md` | Doc-Sync | `claude --agent doc-sync` (runs after a PM `[INIT]` / `[SUBSTANTIVE]` / `[TRIVIAL]` tag) |
+| `project-planning/status.md` | Every agent, own section only | The relevant agent — never edit sections directly, including "just fixing a typo" |
+| `project-planning/modules/*/status.md` | Engineer (Engineering Progress) / QA (QA Results) | `engineer-mod-<name>` or `qa-mod-<name>` |
+| `project-planning/integration-review.md` | Tech Lead, Engineer, QA — each its own status transitions | Human decisions (approve / reject / defer, and "I verified INT-00N") go to `claude --agent tech-lead`, which records them. Engineer sets `IN PROGRESS` / `FIXED – AWAITING QA`; QA sets `QA VERIFIED`. |
+| Source code | Engineer of the module whose **Source Path** (Module Map) contains it | `claude --agent engineer-mod-<name>`. Code used by several modules has exactly one owner module; the others depend on it. If you found the bug yourself rather than QA, there is nothing in QA Results for Engineer to read — give the human the full diagnosis, error output, and reproduction steps to paste into the Engineer session. |
 | Database migrations | Engineer | Same as source code above |
-| `.claude/agents/engineer-mod-*.md`, `.claude/agents/qa-mod-*.md` | Doc-Sync | Generated automatically during sync — never hand-edit |
-| `README.md` (final) | PM | Invoke `pm` (checkpoint mode, final phase only) |
-| `project-planning/retrospective/*` | Retrospective | Invoke `retrospective` (manual only, never automatic) |
-| `project-planning/pstack-findings/*` | You | Only the output of a step in **Required pstack steps** below, saved and committed as that table says. Tech Lead reads these files; nobody edits one after it is committed. |
-| `.claude/skills/verify/` | You, but only when the human explicitly says yes | Created by `/pstack:create-verification-skill` after the first runnable module passes QA, and kept current with `/pstack:maintain-verification-skill` under the same approval rule. QA uses it and never edits it. If the app will not build or start, report that and route it to `engineer-mod-<name>` — never fix the code to make the skill work. |
-| `.claude/skills/*`, other `.claude/agents/*.md` | You, but only on explicit human instruction | This is the one documented exception: after the human reviews a Retrospective proposal and explicitly tells you to apply it (e.g. "use the create-agent-skills skill to apply drafts/x.proposal.md"), you may create/edit these files yourself. Never do this unprompted, and never as a shortcut to fix something an owner agent above should fix instead. |
+| `.claude/agents/engineer-mod-*.md`, `.claude/agents/qa-mod-*.md` | Doc-Sync | Generated during sync — never hand-edit. Restart Claude Code after a sync that adds one, so it loads. |
+| `README.md` (final) | PM | `claude --agent pm` (checkpoint, final phase only) |
+| `project-planning/retrospective/*` | Retrospective | `claude --agent retrospective` (manual only, never automatic) |
+| `project-planning/pstack-findings/*` | You | Only the output of a step in **Required pstack steps** below, saved and committed as that section says. Tech Lead reads these files; nobody edits one after it is committed. |
+| `.claude/skills/verify/` | You, but only when the human explicitly says yes | Created by `/pstack:create-verification-skill` during phase 1, once the app runs; kept current with `/pstack:maintain-verification-skill` under the same rule. QA uses it and never edits it. If the app will not build or start, report that and route it to the owning Engineer — never fix code to make the skill work. |
+| `.claude/skills/*`, other `.claude/agents/*.md` | You, but only on explicit human instruction | After the human reviews a Retrospective proposal and explicitly tells you to apply it (e.g. "use the create-agent-skills skill to apply drafts/x.proposal.md"), you may create/edit these files yourself. Never do this unprompted, and never as a shortcut to fix something an owner agent above should fix instead. |
 
 ## Hard rule
 
-Never call Edit, Write, or MultiEdit on any artifact in the table above outside the rows that name you as owner, and only on the terms those rows state. If you catch yourself about to patch a planning doc or source file directly, stop and invoke the owning agent instead.
+Never call Edit, Write, or MultiEdit on any artifact in the table above outside the rows that name you as owner, and only on the terms those rows state. If you catch yourself about to patch a planning doc or source file directly, stop and send the work to the owning agent instead.
 
 **The "small and obvious" trap.** The most common violation is a one-line fix you can see clearly. This is not an exception — it is the highest-risk case because it feels safe. The size of the change is irrelevant. One line still requires delegation. "I can see exactly what needs changing" is not a reason to skip the owner; it is the prompt that should trigger the hardest pause.
 
-**Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Invoke the owning agent instead with your diagnosis and the exact location of the problem.
+**Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Give the human the owning agent's command, with your diagnosis and the exact location of the problem.
 
 ## What this looks like in practice
 
 **Forbidden**: QA finds a layout bug during manual testing. You open `production.md` and add a line about a new convention yourself.
-**Correct**: Invoke `tech-lead` with the bug description → it proposes the convention in `status.md` → invoke `pm` to log it as a PRD change → invoke `doc-sync` to sync it into `production.md`.
+**Correct**: Have the human run `tech-lead` with the bug description → it proposes the convention in `status.md` → `pm` adds it to Adopted Conventions as a PRD change → `doc-sync` syncs it into `production.md`.
 
 **Forbidden**: A build fails with a dependency or migration error. You open the source file or migration file and patch it directly.
-**Correct**: Identify the owning module from `status.md` Module Map, then invoke `engineer-mod-<name>` with the full error output and your diagnosis in the prompt.
+**Correct**: Find the owning module from the Module Map's Source Path, then give the human `claude --agent engineer-mod-<name>` with the full error output and your diagnosis to paste in.
 
 **Forbidden**: During human QA you identify a one-line bug in a source file. The fix is obvious. You edit the file directly to unblock testing.
-**Correct**: Invoke `engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. Mention that the tester is waiting if urgency matters — the engineer can act in seconds. The fix being obvious is not an exception; it is the trap.
+**Correct**: Give the human `claude --agent engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. The fix being obvious is not an exception; it is the trap.
 
 ## Required pstack steps
 
-Some handoffs need a pstack review skill run first. Agents never start other agents, so **you** run these — in this session or a regular `claude` session, never inside an agent. The handoff hook names the step at the right moment; this table is the source of truth. **At every handoff, check this table before invoking the next agent**, and name the findings file in that agent's invocation message.
+Some handoffs need a pstack review skill run first. Agents never start other agents, so **you** run these, in this session. The handoff hook names the step at the right moment; this table is the source of truth. When the human brings you a handoff, check this table first, run the step, then give them the next agent's command and the findings file to mention.
 
-| Handoff point | Run first | Save output to | Then invoke |
+| Handoff point | Run | Save output to | Then |
 |---|---|---|---|
-| Before PM init, or before asking PM for a major change | `/pstack:sharpen`, then `/pstack:in-your-own-words` with the human | nothing — put the clarified goal in the `pm` invocation | `pm` |
-| PM `change` with architectural impact | `/pstack:interrogate` on the changed PRD sections | `project-planning/pstack-findings/<date>-interrogate-<topic>.md` | `tech-lead` |
-| QA pass on the last module of a phase | `/pstack:thermos` on the phase's changes (diff since the last checkpoint commit) | `project-planning/pstack-findings/<date>-thermos-phase-<N>.md` | `tech-lead` (integration review) |
-| Human approves an integration-review fix that touches code shared by several modules | `/pstack:blast-radius` on the planned fix | `project-planning/pstack-findings/<date>-blast-radius-<item-id>.md` | `tech-lead` if the risks change the plan, otherwise `engineer-mod-<name>` |
-| QA `repeat-failure` | `/pstack:how` and `/pstack:why` on the failing path | `project-planning/pstack-findings/<date>-how-why-<AC-ID>.md` | `tech-lead` (repeat-failure review) |
-| First runnable module passes QA and `.claude/skills/verify/` does not exist — **only after the human says yes** | `/pstack:create-verification-skill` | `.claude/skills/verify/` | the next agent as usual; QA uses `verify` from then on |
+| PM `change` with architectural impact | `/pstack:how` on the code the change affects | `project-planning/pstack-findings/<date>-how-<topic>.md` | `claude --agent tech-lead` (change review) |
+| QA pass on the last module of a phase | `/pstack:thermos` on the phase's changes: diff from the last Checkpoint History commit (phase 1: the `doc-sync(initial)` commit) to HEAD, limited to the phase's Source Paths | `project-planning/pstack-findings/<date>-thermos-phase-<N>.md` | `claude --agent tech-lead` (integration review) |
+| An approved integration-review fix changes code another module depends on | `/pstack:blast-radius` on the planned fix. Any probe script goes in a scratch directory outside the project; skip its `arena` step | `project-planning/pstack-findings/<date>-blast-radius-<INT-ID>.md` | `tech-lead` if the risks change the plan, otherwise `engineer-mod-<name> "integration-fix <INT-ID>"` |
+| QA `repeat-failure`, **first escalation of that AC only** | `/pstack:how` and `/pstack:why` on the failing path | `project-planning/pstack-findings/<date>-how-why-<AC-ID>.md` | `claude --agent tech-lead` (repeat-failure review) |
+| Phase 1, once the app runs, no `.claude/skills/verify/` yet — **only if the human says yes** | `/pstack:create-verification-skill` | `.claude/skills/verify/` | the next agent as usual; QA uses `verify` from then on |
+
+PM runs `pstack:sharpen` itself at the start of init — it is not a coordinator step.
 
 ### Deliver findings, never fix
 
 - A pstack step produces a findings file (or, in the last row, the verify skill) and nothing else. You never act on what it finds: no edit to code, `prd.md`, specs, or `status.md`, even when the skill offers a patch or the fix looks obvious. The finding goes to Tech Lead or the named owner, the human decides, and the owner makes the change.
 - After each step, run `git status`. If anything changed outside `project-planning/pstack-findings/` (and `.claude/skills/verify/` for the last row), stop and tell the human exactly what changed. Do not revert or commit it yourself.
-- Commit the findings file before invoking the next agent: `git add project-planning/pstack-findings/ && git commit -m "pstack(<skill>): <topic>"`.
+- Commit the findings file before the next agent runs: `git add project-planning/pstack-findings/ && git commit -m "pstack(<skill>): <topic>"`.
 
 ### pstack skills you never run on owned artifacts
 
-`poteto-mode`, `reflect`, `correct`, `babysit`, `fix-ci`, `deslop`, `no-comments`, `tdd`, and `arena` or `swarm` on code — each changes files, and changes go through the owner. Never run `unslop` or `technical-writing` on anything Doc-Sync produced: its text must match the PRD exactly. Owners may use the pstack skills on their own allowlist (PM: `unslop`, `technical-writing`; Engineer: `tdd`, `deslop`, `typescript-best-practices`; QA: `verify`).
+`poteto-mode`, `reflect`, `correct`, `babysit`, `fix-ci`, `deslop`, `no-comments`, `tdd`, and `arena` or `swarm` on code — each changes files, and changes go through the owner. Never run `unslop` or `technical-writing` on anything Doc-Sync produced: its text must match the PRD exactly. Owners use the pstack skills on their own allowlist (PM: `sharpen`, `unslop`, `technical-writing`; Engineer: `tdd`, `deslop`, `typescript-best-practices`; QA: `verify`).
 
 ### What enforces this
 
-- The `pstack-guard.sh` hook blocks an agent from calling any skill outside its allowlist, and blocks every non-framework subagent (pstack's reviewers) from writing anywhere in the project except `project-planning/pstack-findings/`.
-- The hook cannot see your own session or shell commands — the `git status` check above covers those.
+- The `pstack-guard.sh` hook blocks an agent from calling any skill outside its allowlist, and blocks every non-framework subagent (pstack's reviewers) from writing project files with Write, Edit, MultiEdit, or NotebookEdit anywhere except `project-planning/pstack-findings/`.
+- The hook does not see your own session or shell commands — the `git status` check above covers those.
