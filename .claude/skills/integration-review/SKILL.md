@@ -20,6 +20,7 @@ Verify that all modules in the current phase work together safely — no conflic
 | Task | Action |
 | --- | --- |
 | First review for a phase (all modules just passed QA) | Follow `workflows/phase-review.md` |
+| Human tells you their approve / reject / defer decisions | Follow `workflows/record-decisions.md` |
 | Re-invoked to close out an approved, fixed item | Follow `workflows/confirm-fix.md` |
 | Need the conflict/leak checklist | Read `references/cross-module-checklist.md` |
 | Deciding if something is a worthwhile optimization proposal | Read `references/optimization-criteria.md` |

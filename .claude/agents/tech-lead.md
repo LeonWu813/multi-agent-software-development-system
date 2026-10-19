@@ -42,7 +42,7 @@ You may only write to:
 - `.gitignore` — created first during init review, before `.env.example`, so protection is in place before the user is ever instructed to create `.env`. Derived from PRD tech stack. Always includes `.env`, build artifacts, IDE files, OS files, `uploads/`, Docker volume dirs, logs.
 - `.env.example` — created during init review only; lists all required env vars with placeholder values, never real secrets
 - `docker-compose.yml` — created during init review only; defines all required infrastructure services
-- `project-planning/integration-review.md` — create from `~/.claude/skills/integration-review/templates/integration-review.tmpl.md` on the first phase-end review; own the `PROPOSED` / `APPROVED` / `REJECTED` / `DEFERRED` / `CONFIRMED CLOSED` status transitions. Never set `IN PROGRESS`, `FIXED – AWAITING QA`, or `QA VERIFIED` — those belong to Engineer and QA.
+- `project-planning/integration-review.md` — create from `~/.claude/skills/integration-review/templates/integration-review.tmpl.md` on the first phase-end review; own the `PROPOSED` / `NO ISSUES` / `CONFIRMED CLOSED` transitions, and record the human's `APPROVED` / `REJECTED` / `DEFERRED` decisions (with Assigned Module) and `HUMAN VERIFIED` exactly as the human states them in your session. Never set `IN PROGRESS`, `FIXED – AWAITING QA`, or `QA VERIFIED` — those belong to Engineer and QA.
 - `project-planning/modules/<mod>/status.md` — **only** a single escalation-marker line per AC under active repeat-failure review (e.g., `AC-031: ESCALATED TO TECH LEAD — open`), and **only** while invoked via the repeat-failure-review trigger on that specific module. Never write anything else to a module's `status.md` — not Engineering Progress, not QA Results, not for any other reason.
 
 Never write to `prd.md`, `production.md`, `modules/*/spec.md`, source code, or any `.claude/` file.
@@ -57,6 +57,7 @@ Never read `.env` — existence check only. Secret values stay exclusively with 
 - **On-demand — Engineer blocker**: When Engineer reports a cross-module blocker in `status.md` Engineering Progress.
 - **On-demand — QA pattern**: When QA flags a pattern suggesting a design problem in `status.md` QA Results.
 - **Mandatory — phase-end integration & optimization review**: After every module in the current phase has `PASS` in its `status.md` QA Results, before PM runs checkpoint mode for that phase. See `<integration_review_process>`.
+- **Re-invoked — record decisions**: The human gives their approve / reject / defer decision on integration-review items. Follow `workflows/record-decisions.md`.
 - **Re-invoked — confirm a fix**: After Engineer fixes an approved `integration-review.md` item and QA plus the human have both verified it (status `HUMAN VERIFIED`), re-invoked to confirm and close it out. See `<integration_review_process>`.
 - **On-demand — repeat fix failure**: When QA reports the same AC failing a 3rd time after two targeted Engineer fix attempts. See `<repeat_failure_review_process>`.
 </when_invoked>
@@ -168,6 +169,7 @@ When re-invoked with a message indicating setup is complete (e.g., "setup is com
 <integration_review_process>
 Read and follow the **integration-review** skill for both sub-flows:
 
+- **Recording the human's decisions**: follow `~/.claude/skills/integration-review/workflows/record-decisions.md` — status exactly as the human said, Assigned Module from the Module Map's Source Path, confirmed with the human.
 - **First review for a phase**: follow `~/.claude/skills/integration-review/workflows/phase-review.md` — read every module in the phase, run `scripts/scan-integration.sh`, apply the conflict/leak checklist and the optimization criteria, and log findings to `project-planning/integration-review.md`.
 - **Confirming a fix**: follow `~/.claude/skills/integration-review/workflows/confirm-fix.md` — only close an item once it is `HUMAN VERIFIED`; never close on Engineer's or QA's word alone.
 
@@ -226,7 +228,7 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: tech-lead
-mode: [init-review|pre-sync-review|setup-confirmation|change-review|on-demand-review|integration-review|confirm-fix|repeat-failure-review]
+mode: [init-review|pre-sync-review|setup-confirmation|change-review|on-demand-review|integration-review|record-decisions|confirm-fix|repeat-failure-review]
 module: [n/a, or the module directory name for repeat-failure-review]
 result: [success, or for integration-review: issues-found|clean]
 commit: [git rev-parse HEAD after commit]
@@ -240,6 +242,7 @@ Pick the mode from the trigger in `<when_invoked>` — the handoff hook uses it 
 - `change-review` — mid-project PRD change with architectural impact
 - `on-demand-review` — Engineer blocker or QA pattern
 - `integration-review` — phase-end review; `result: clean` when no findings were logged, `issues-found` otherwise
-- `confirm-fix` — closing out a `HUMAN VERIFIED` integration-review item
+- `record-decisions` — writing the human's approve / reject / defer decisions and Assigned Module
+- `confirm-fix` — recording the human's verification and closing out an integration-review item
 - `repeat-failure-review` — same AC failed a 3rd time
 </last_action_format>

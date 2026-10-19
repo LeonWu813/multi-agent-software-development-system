@@ -76,9 +76,10 @@ fi
                 if [ "$RESULT" = "clean" ]; then
                     NEXT="No integration issues this phase. Next: claude --agent pm  (checkpoint)"
                 else
-                    NEXT="Review project-planning/integration-review.md — approve/reject/defer each finding, route approved items to their engineer-mod-<name> (for a fix that touches code shared by several modules, run /pstack:blast-radius on the planned fix first and save it to project-planning/pstack-findings/). Once no PROPOSED rows remain for this phase: claude --agent pm  (checkpoint)"
+                    NEXT="Review project-planning/integration-review.md and decide each finding, then tell Tech Lead: claude --agent tech-lead  and say e.g. \"INT-001 approve, INT-002 reject, INT-003 defer\""
                 fi ;;
-            confirm-fix)            NEXT="If no PROPOSED or open items remain for this phase: claude --agent pm  (checkpoint). Otherwise route the next approved item to its engineer-mod-<name>" ;;
+            record-decisions)       NEXT="For each APPROVED item: claude --agent engineer-mod-<Assigned Module> \"integration-fix <INT-ID>\" (items noted 'blast-radius first': have the coordinator run /pstack:blast-radius before that). Nothing approved and nothing PROPOSED: claude --agent pm  (checkpoint)" ;;
+            confirm-fix)            NEXT="When every row for this phase is CONFIRMED CLOSED, REJECTED, DEFERRED or NO ISSUES: claude --agent pm  (checkpoint). Otherwise continue the next open item (see integration-review.md Status)" ;;
             repeat-failure-review)  NEXT="Review Tech Lead's diagnosis in status.md Tech Lead Reviews — route to claude --agent engineer-mod-<name> with the diagnosis in hand, or claude --agent pm if it requires a requirements change" ;;
             *)                      NEXT="Read the latest entry in status.md Tech Lead Reviews and decide the next agent" ;;
         esac ;;
@@ -104,7 +105,7 @@ fi
         SLUG="${AGENT#qa-mod-}"
         if [ "$MODE" = "integration-fix-verify" ]; then
             case "$RESULT" in
-                success) NEXT="Human verifies the fix, then: claude --agent tech-lead  # confirm and close the integration-review item" ;;
+                success) NEXT="Verify the fix yourself, then: claude --agent tech-lead  and say \"<INT-ID> verified: <what you checked>\"" ;;
                 *)       NEXT="claude --agent engineer-mod-$SLUG  # integration-review item still not resolved" ;;
             esac
         else

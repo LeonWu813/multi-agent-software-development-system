@@ -3,10 +3,11 @@
 <!-- Created by Tech Lead on the first phase-end review. One row per finding — never
      embed findings inline in module status.md files. Status transitions are split by
      owner, mirroring modules/*/status.md:
-       - Tech Lead owns: PROPOSED, APPROVED, REJECTED, DEFERRED, CONFIRMED CLOSED
+       - Tech Lead owns: PROPOSED, NO ISSUES, CONFIRMED CLOSED — and records the human's
+         decisions (APPROVED / REJECTED / DEFERRED, plus Assigned Module) and the human's
+         verification (HUMAN VERIFIED) exactly as the human states them
        - Engineer owns:  IN PROGRESS, FIXED – AWAITING QA (only on rows assigned to it)
        - QA owns:        QA VERIFIED (or sends back with a note)
-       - Human verification (outside any agent) moves QA VERIFIED -> HUMAN VERIFIED
      A finding that implies a user-facing requirement change does not belong here —
      it should have been escalated to PM's change flow instead. -->
 
@@ -14,7 +15,7 @@
 
 `PROPOSED` → `APPROVED` / `REJECTED` / `DEFERRED` → `IN PROGRESS` → `FIXED – AWAITING QA` → `QA VERIFIED` → `HUMAN VERIFIED` → `CONFIRMED CLOSED`
 
-PM's checkpoint gate for a phase requires every row logged for that phase to be out of `PROPOSED` — either fully closed (`CONFIRMED CLOSED`) or explicitly `REJECTED`/`DEFERRED` by the human. Concerns and Recommendations are gated the same way; severity doesn't change the mechanism, only how much scrutiny the human gives before deciding.
+PM's checkpoint gate for a phase requires every row logged for that phase to be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, or `NO ISSUES`. Any row in between (`PROPOSED` through `HUMAN VERIFIED`) is still open and blocks the checkpoint. Concerns and Recommendations are gated the same way; severity doesn't change the mechanism, only how much scrutiny the human gives before deciding.
 
 ## Findings
 

@@ -127,31 +127,43 @@ echo "--- Checking git scope for module: $MODULE_NAME"
 if ! git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
   skip "Git scope — $PROJECT_ROOT is not a git repository"
 else
-  set +e
-  CHANGED_FILES=$(git -C "$PROJECT_ROOT" diff --name-only HEAD 2>/dev/null)
-  GIT_EXIT=$?
-  set -e
+  # The module's Source Path comes from the Module Map row whose Directory is this module
+  STATUS_MD="$PROJECT_ROOT/project-planning/status.md"
+  SOURCE_PATHS=$(awk -F'|' -v dir="$MODULE_NAME" '
+    /^## Module Map/ {inmap=1; next}
+    inmap && /^## / {exit}
+    inmap && /^\|/ {
+      d=$3; gsub(/^[ \t]+|[ \t]+$/, "", d); gsub(/\/$/, "", d)
+      if (d == dir) { sp=$5; gsub(/^[ \t]+|[ \t]+$/, "", sp); print sp; exit }
+    }' "$STATUS_MD" 2>/dev/null)
 
-  if [[ $GIT_EXIT -ne 0 ]]; then
-    skip "Git scope — could not run git diff (no commits yet or detached HEAD)"
+  # Tracked changes and untracked files, one path per line (renames report the new path)
+  CHANGED_FILES=$(git -C "$PROJECT_ROOT" status --porcelain --untracked-files=all 2>/dev/null | sed -E 's/^.{3}//; s/^.* -> //')
+
+  if [[ -z "$SOURCE_PATHS" ]]; then
+    skip "Git scope — no Source Path for $MODULE_NAME in the status.md Module Map (add the column at PM finalize)"
   elif [[ -z "$CHANGED_FILES" ]]; then
     skip "Git scope — no uncommitted changes detected (all changes already committed)"
   else
     OUT_OF_SCOPE=""
     while IFS= read -r filepath; do
       [[ -z "$filepath" ]] && continue
-      # Allow files in the module directory or status.md (at root or in project-planning/)
-      if [[ "$filepath" != "project-planning/modules/$MODULE_NAME/"* && \
-            "$filepath" != "project-planning/status.md" && \
-            "$filepath" != "status.md" ]]; then
-        OUT_OF_SCOPE+="  $filepath"$'\n'
-      fi
+      allowed=0
+      case "$filepath" in
+        "project-planning/modules/$MODULE_NAME/"*|project-planning/status.md|project-planning/integration-review.md) allowed=1 ;;
+      esac
+      IFS=',' read -ra paths <<< "$SOURCE_PATHS"
+      for sp in "${paths[@]}"; do
+        sp="${sp#"${sp%%[![:space:]]*}"}"; sp="${sp%"${sp##*[![:space:]]}"}"; sp="${sp#./}"; sp="${sp%/}"
+        [[ -n "$sp" && ( "$filepath" == "$sp" || "$filepath" == "$sp/"* ) ]] && allowed=1
+      done
+      [[ $allowed -eq 0 ]] && OUT_OF_SCOPE+="  $filepath"$'\n'
     done <<< "$CHANGED_FILES"
 
     if [[ -z "$OUT_OF_SCOPE" ]]; then
-      pass "Git scope — all changes are within module boundary ($MODULE_NAME/)"
+      pass "Git scope — all changes are within $MODULE_NAME's Source Path ($SOURCE_PATHS) or its planning files"
     else
-      fail "Git scope — changes found outside module boundary:"
+      fail "Git scope — changes outside $MODULE_NAME's Source Path ($SOURCE_PATHS):"
       printf "%s" "$OUT_OF_SCOPE"
     fi
   fi

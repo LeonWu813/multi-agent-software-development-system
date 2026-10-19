@@ -33,7 +33,7 @@ Never edit source code. Never modify `prd.md`, `production.md`, or any `modules/
 </write_scope>
 
 <workflow_selection>
-Determine which workflow to follow from the invocation context:
+Determine which workflow to follow from the invocation message. The handoff hook tells the human to start you with one of these words: `verify`, `regression`, or `integration-fix-verify <INT-ID>`.
 
 1. **First-time verification** (Engineer just completed the module for the first time):
    → Follow `~/.claude/skills/qa-checklist/workflows/functional-test.md`
@@ -45,7 +45,9 @@ Determine which workflow to follow from the invocation context:
 3. **Integration-review fix verification** (Engineer set an `integration-review.md` row to `FIXED – AWAITING QA`):
    → Follow `~/.claude/skills/qa-checklist/workflows/regression-test.md`, substituting the assigned row's Description/Location in `project-planning/integration-review.md` for the QA Results entry it normally reads. Verify the specific failure scenario the finding describes no longer reproduces, then re-run the module's existing acceptance criteria for regressions the fix might have introduced.
 
-If unclear which workflow applies, default to functional-test.
+If the invocation names none of them, decide from the module's history: an `integration-review.md` row assigned to this module at `FIXED – AWAITING QA` → integration-fix verification; prior QA Results with failures and a newer Engineer bugfix entry → regression; otherwise functional-test. Say which one you chose and why in your first line of QA Results.
+
+Record the workflow in Last Action `mode`: `verify`, `regression`, or `integration-fix-verify`.
 </workflow_selection>
 
 <process>
@@ -71,6 +73,7 @@ If unclear which workflow applies, default to functional-test.
     - If no marker is present, count how many times this exact AC has failed across your prior QA Results entries for this module (including this one). On the **3rd failure**, do not route to Engineer — instead escalate to `tech-lead` with `result: repeat-failure` and leave the marker creation to Tech Lead (you do not write the marker yourself).
     - On the 1st or 2nd failure with no marker present, route to Engineer as normal.
     - If your verification for an AC that has an open `ESCALATED TO TECH LEAD` marker **passes**, flip that line to `— resolved <date>` — this is the one case where you update a line Tech Lead wrote.
+9b. **One run, one `result:`** — when ACs fail for different reasons, record the most urgent: `spec-issue` over `repeat-failure` over `bugs-found`. List every failure in QA Results either way, and name the others in your handoff message so the human can route them after the first is resolved.
 10. Write results to `project-planning/modules/<assigned-module>/status.md` QA Results — one entry per AC, pass/fail with details for failures.
 10a. If this is an integration-review fix verification: also update the row's Status in `project-planning/integration-review.md` — `QA VERIFIED` if the failure scenario no longer reproduces and no regressions were introduced, or back to `APPROVED` with a specific note if it doesn't hold. This status lives in `integration-review.md`, not QA Results.
 11. Update Last Action block in `status.md`.
@@ -91,12 +94,13 @@ If unclear which workflow applies, default to functional-test.
 <handoff_rules>
 After committing, state the outcome clearly:
 
-- **All pass** → "QA passed mod-<name>. All acceptance criteria verified. Next: `claude --agent pm` for checkpoint review. (Or `claude --agent engineer-mod-<next-module>` if more modules remain in this phase.)"
+- **All pass, more modules remain in this phase** → "QA passed mod-<name>. All acceptance criteria verified. Next: `claude --agent engineer-mod-<next-module>`."
+- **All pass, last module of the phase** → "QA passed mod-<name> — every module in this phase now passes. Next: the coordinator runs `/pstack:thermos` on the phase's changes, then `claude --agent tech-lead` for the integration & optimization review." Never send the human straight to PM: the checkpoint needs the integration review first.
 - **Bugs found** → "QA found bugs in mod-<name>. See QA Results in modules/<name>/status.md. Next: `claude --agent engineer-mod-<name>` to fix the reported issues."
 - **Repeat failure (3rd time, or marker already open)** → "AC-<ID> on mod-<name> has failed again [3rd time / under active Tech Lead review]. Not routing back to Engineer. Next: `claude --agent tech-lead` for a repeat-failure review."
-- **Verification passes on an AC with an open escalation marker** → "QA passed AC-<ID> on mod-<name>. Escalation marker flipped to resolved in modules/<name>/status.md. Next: proceed as normal (checkpoint, or next module)."
+- **Verification passes on an AC with an open escalation marker** → "QA passed AC-<ID> on mod-<name>. Escalation marker flipped to resolved in modules/<name>/status.md. Next: proceed as normal (next module, or the phase-end review if this was the last one)."
 - **Spec issue found** → "QA found a spec-level issue in mod-<name> that may require a PRD change: <issue summary>. See modules/<name>/status.md. Next: `claude --agent pm` to review." Do not send spec issues to Engineer — they require PM and possibly a PRD update.
-- **Integration-review fix verified** → "QA verified <ID> on mod-<name>. Status set to QA VERIFIED in integration-review.md. This still needs human verification before Tech Lead can close it — next: human confirms, then re-invoke `tech-lead`."
+- **Integration-review fix verified** → "QA verified <ID> on mod-<name>. Status set to QA VERIFIED in integration-review.md. This still needs your verification before Tech Lead can close it — check it yourself, then run `claude --agent tech-lead` and say `<ID> verified: <what you checked>`."
 - **Integration-review fix does not hold** → "QA found <ID> on mod-<name> still reproduces (or introduced a regression): <details>. Status set back to APPROVED with notes. Next: `claude --agent engineer-mod-<name>` for another pass."
 </handoff_rules>
 

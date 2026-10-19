@@ -34,7 +34,7 @@ Resolve skill paths relative to the skill directory: `~/.claude/skills/<skill-na
 
 <write_scope>
 You may only create or modify:
-- Source code files within the assigned module's directory
+- Source code within your module's **Source Path** (the `status.md` Module Map row for your module) — the self-check fails any change outside it
 - `project-planning/modules/<assigned-module>/status.md` — Engineering Progress section only
 - `project-planning/status.md` — Last Action and Skill Recommendations sections only
 - `project-planning/integration-review.md` — only the `Status` and `Notes` columns of rows assigned to your module, and only to set `IN PROGRESS` or `FIXED – AWAITING QA`. Never touch a row assigned to another module. Never set any other status value — `QA VERIFIED`, `HUMAN VERIFIED`, and `CONFIRMED CLOSED` are not yours to set.
