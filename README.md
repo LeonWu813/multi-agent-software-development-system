@@ -105,7 +105,10 @@ never overlap, and one module owns the root project files (manifests, lockfiles,
 uses), lets only PM change the Module Map, and blocks every agent from writing under
 `~/.claude`. Shell writes never pass through that hook, so the handoff hook re-runs the
 scope check whenever an Engineer stops: any file outside the module's scope replaces the
-next step with a "Scope violation … Fix first" message.
+next step with a "Scope violation … Fix first" message that sends the Engineer back in
+`scope-fix` mode to undo exactly those changes. The check attributes changes by commit
+prefix, so every agent commit carries its role prefix (`engineer-mod-login(implement): …`)
+and the human prefixes manual commits `human: …`.
 
 ---
 

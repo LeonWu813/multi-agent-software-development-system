@@ -78,6 +78,7 @@ Record the workflow in Last Action `mode` as the bare word: `verify`, `regressio
     - Otherwise, on the 1st or 2nd failure with no marker present, route to Engineer as normal.
     - If your verification for an AC that has an open `ESCALATED TO TECH LEAD` marker **passes**, flip that line to `— resolved <date>` — this is the one case where you update a line Tech Lead wrote.
 9b. **One run, one `result:`** — when ACs fail for different reasons, record the most urgent: `spec-issue` over `setup-drift` over `repeat-failure` over `bugs-found`. Use `needs-signoff` when you stopped for the human to run a UI test script, and `needs-human` when you are blocked on anything else the human must do (e.g. the server will not start). List every failure in QA Results either way, and name the others in your handoff message so the human can route them after the first is resolved.
+9c. **Open items.** Every failure you do not route this run (lower in the precedence of 9b) goes in the module status file under `### Open items`, inside `## QA Results`, one line each: `- [ ] AC-012 bugs-found — <one-line description> (<date>)`. In every later run, tick the items your checks now pass (`- [x] … — passed <date>`) and keep the rest. The hook shows open items in every handoff until they are ticked, whichever agent runs in between, so nothing is lost while PM or Tech Lead handles the more urgent result.
 10. Write results to `project-planning/modules/<assigned-module>/status.md` QA Results — one entry per AC, pass/fail with details for failures.
 10a. If this is an integration-review fix verification: also update the row's Status in `project-planning/integration-review.md` — `QA VERIFIED` if the failure scenario no longer reproduces and no regressions were introduced, or back to `APPROVED` with a specific note if it doesn't hold. This status lives in `integration-review.md`, not QA Results.
 11. Update Last Action block in `status.md`.
@@ -92,9 +93,9 @@ Record the workflow in Last Action `mode` as the bare word: `verify`, `regressio
 <handoff_rules>
 After committing, state the outcome clearly:
 
-- **All pass, more modules remain in this phase** → "QA passed mod-<name>. All acceptance criteria verified. Next: `claude --agent engineer-mod-<next-module>`."
+- **All pass, more modules remain in this phase** → "QA passed mod-<name>. All acceptance criteria verified. Next: `claude --agent engineer-mod-<next-module> "implement"`."
 - **All pass, last module of the phase** → "QA passed mod-<name> — every module in this phase now passes. Next: the coordinator runs `/pstack:thermos` on the phase's changes, then `claude --agent tech-lead` for the integration & optimization review." Never send the human straight to PM: the checkpoint needs the integration review first.
-- **Bugs found** → "QA found bugs in mod-<name>. See QA Results in modules/<name>/status.md. Next: `claude --agent engineer-mod-<name>` to fix the reported issues."
+- **Bugs found** → "QA found bugs in mod-<name>. See QA Results in modules/<name>/status.md. Next: `claude --agent engineer-mod-<name> "bugfix"`."
 - **Repeat failure (3rd time, or marker already open)** → "AC-<ID> on mod-<name> has failed again [3rd time / under active Tech Lead review]. Not routing back to Engineer. Next: `claude --agent tech-lead` for a repeat-failure review."
 - **Verification passes on an AC with an open escalation marker** → "QA passed AC-<ID> on mod-<name>. Escalation marker flipped to resolved in modules/<name>/status.md. Next: proceed as normal (next module, or the phase-end review if this was the last one)."
 - **Spec issue found** → "QA found a spec-level issue in mod-<name> that may require a PRD change: <issue summary>. See modules/<name>/status.md. Next: `claude --agent pm` to review." Do not send spec issues to Engineer — they require PM and possibly a PRD update.
@@ -124,7 +125,6 @@ mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
 result: [success|bugs-found|spec-issue|repeat-failure|setup-drift|needs-signoff|needs-human]
 ac: [repeat-failure only: every AC routed to Tech Lead in this run, comma-separated (e.g. AC-004, AC-031) — the hook checks each AC's escalation marker]
-pending: [the other results this run also produced, below the one in result: — e.g. "bugs-found (AC-012, AC-014)". The hook reminds the human; keep listing them in every later run until they are fixed]
 next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]
 timestamp: [ISO 8601]
 ```

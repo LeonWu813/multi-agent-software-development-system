@@ -357,15 +357,15 @@ def test_applies_percentage_discount_to_order_subtotal():
 
 ## 5. Commit Messages
 
-Conventional commits format: `type(scope): description`
+Agent-role prefix format: `<agent>(<mode>): description` (Engineers: `engineer-<dir>(<mode>)`; the human: `human: …`)
 
 | Bad | Good |
 |-----|------|
-| `fixed stuff` | `fix(auth): resolve token expiry check off-by-one error` |
-| `WIP` | `feat(checkout): add address validation step to order flow` |
-| `updated login page` | `refactor(login): extract form validation into useLoginForm hook` |
-| `tests` | `test(payments): add edge cases for zero-amount transactions` |
-| `Jan 12 changes` | `chore(deps): upgrade express from 4.18 to 4.19` |
+| `fixed stuff` | `engineer-mod-auth(bugfix): resolve token expiry check off-by-one error` |
+| `WIP` | `engineer-mod-checkout(implement): add address validation step to order flow` |
+| `updated login page` | `engineer-mod-login(implement): extract form validation into useLoginForm hook` |
+| `tests` | `engineer-mod-payments(bugfix): add edge cases for zero-amount transactions` |
+| `Jan 12 changes` | `human: upgrade express from 4.18 to 4.19` |
 
 **Type reference:**
 

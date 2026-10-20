@@ -141,7 +141,9 @@ else
   STATUS_MD="$PROJECT_ROOT/project-planning/status.md"
   SOURCE_PATHS=$(python3 "$SCOPE_PY" paths "$STATUS_MD" "$MODULE_NAME" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')
   case "$SCOPE_RC" in
-    0) pass "Git scope — every change is within $MODULE_NAME's scope (${SOURCE_PATHS:-no paths}, plus its planning files)" ;;
+    0) pass "Git scope — every change is within $MODULE_NAME's scope (${SOURCE_PATHS:-no paths}, plus its planning files)"
+       [ -n "$SCOPE_OUT" ] && printf '%s\n' "$SCOPE_OUT" | sed 's/^/  /' ;;
+    2) fail "Git scope — $MODULE_NAME has no row in the status.md Module Map; PM must add it before you build" ;;
     3) skip "Git scope — the status.md Module Map has no Source Path column (add it at PM finalize)" ;;
     *) fail "Git scope — changes outside $MODULE_NAME's scope:"
        printf '%s\n' "$SCOPE_OUT" | sed 's/^/  /' ;;

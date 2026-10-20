@@ -10,10 +10,14 @@ Usage:
   module_scope.py paths <status.md> <module-dir>
       prints the module's Source Paths (and project files, if it owns them), one per line
   module_scope.py changed <project-root> <module-dir>
-      checks every file this module changed — uncommitted and untracked files, plus the files in
-      the module's own engineer-<dir>(...) commits since the last commit by anyone else — and
-      prints each one outside the module's scope with the reason. Exit 0 = all in scope, 1 = not,
+      compares the working tree (committed + uncommitted + untracked) with the last commit made by
+      another agent, and prints each changed file outside the module's scope with the reason.
+      Renames count as a delete and an add. Untracked files in no module's path are printed as
+      "note:" lines (they may be another session's leftovers) and do not fail the check.
+      Exit 0 = all in scope, 1 = not, 2 = the module has no Module Map row,
       3 = no Source Path column (older project). Shell writes are caught here, not by the guard.
+  module_scope.py dependents <project-root> <module-dir>
+      prints the modules whose spec.md "## Dependencies" section names this module's MOD-ID
 
 Write scope of an Engineer = its Source Paths + the project files it owns + its own planning
 files (modules/<dir>/ except spec.md, project-planning/status.md, integration-review.md).
@@ -57,6 +61,7 @@ def parse(status_path):
     has_source_col = False
     modules = {}
     project = None
+    MOD_IDS.clear()
     for line in section.splitlines():
         s = line.strip()
         pf = re.match(r"^Project files:\s*([^|]+)\|\s*(.*)$", s, re.I)
@@ -81,7 +86,16 @@ def parse(status_path):
             paths = [norm_path(x) for x in cols[3].split(",") if norm_path(x)]
         if d:
             modules[d] = paths
+            MOD_IDS[d] = clean(cols[0])
     return has_source_col, modules, project
+
+
+MOD_IDS = {}  # module dir -> MOD-ID, filled by parse()
+
+# Commit prefixes of every agent except Engineers; the base for an Engineer's changes is the
+# last such commit (or another module's engineer commit). Anything else counts as this Engineer's.
+OTHER_AGENT_PREFIXES = ("pm(", "pm:", "tech-lead(", "tech-lead:", "doc-sync(", "doc-sync:",
+                        "qa-", "pstack(", "retrospective:", "retrospective(", "human:")   # the human prefixes manual commits "human: ..."
 
 
 def owner_of(rel, modules, project):
@@ -106,32 +120,45 @@ def git(root, *args):
 
 
 def changed_files(root, mod):
-    """Files this module's Engineer changed: own commits on top of HEAD plus the working tree."""
-    files = set()
+    """(files, untracked) — working tree vs the last other-agent commit, renames split."""
     log = git(root, "log", "--format=%H%x00%s") or ""
     base = None
     for line in log.splitlines():
         sha, _, subject = line.partition("\0")
-        if subject.startswith(f"engineer-{mod}(") or subject.startswith(f"engineer-{mod}:"):
-            continue
-        base = sha
-        break
-    if base is None and log:
-        base = (git(root, "hash-object", "-t", "tree", "/dev/null") or "").strip()
+        own = subject.startswith(f"engineer-{mod}(") or subject.startswith(f"engineer-{mod}:")
+        other_engineer = subject.startswith("engineer-") and not own
+        if subject.startswith(OTHER_AGENT_PREFIXES) or other_engineer:
+            base = sha
+            break
+    if base is None:
+        base = (git(root, "hash-object", "-t", "tree", "/dev/null") or "").strip() if log else None
+    files = set()
     if base:
-        out = git(root, "-c", "core.quotePath=false", "diff", "--name-only", base, "HEAD") or ""
-        files.update(x for x in out.splitlines() if x)
-    status = subprocess.run(["git", "-C", root, "status", "--porcelain", "-z", "--untracked-files=all"],
-                            capture_output=True).stdout.decode("utf-8", "replace").split("\0")
-    i = 0
-    while i < len(status):
-        e = status[i]
-        if len(e) > 3:
-            files.add(e[3:])
-            if e[0] in "RC":
-                i += 1
-        i += 1
-    return sorted(files)
+        out = git(root, "-c", "core.quotePath=false", "diff", "--name-only", "-z", "--no-renames", base) or ""
+        files.update(x for x in out.split("\0") if x)
+    out = git(root, "-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard", "-z") or ""
+    untracked = {x for x in out.split("\0") if x}
+    return sorted(files | untracked), untracked
+
+
+def dependents(root, mod):
+    """Modules whose spec Dependencies section names mod's MOD-ID."""
+    parse(os.path.join(root, "project-planning", "status.md"))
+    mid = MOD_IDS.get(mod)
+    if not mid:
+        return []
+    out = []
+    for d in MOD_IDS:
+        if d == mod:
+            continue
+        try:
+            spec = open(os.path.join(root, "project-planning", "modules", d, "spec.md"), encoding="utf-8").read()
+        except OSError:
+            continue
+        dep = re.search(r"^## Dependencies\s*\n(.*?)(?=^## |\Z)", spec, re.S | re.M)
+        if dep and re.search(re.escape(mid) + r"\b", re.sub(r"<!--.*?-->", "", dep.group(1), flags=re.S)):
+            out.append(d)
+    return out
 
 
 def in_scope(rel, mod, has_source_col, modules, project):
@@ -161,19 +188,30 @@ def main():
     if len(sys.argv) < 4:
         print(__doc__)
         return 64
+    if sys.argv[1] == "dependents":
+        print(", ".join(dependents(sys.argv[2], norm_dir(sys.argv[3]))))
+        return 0
     if sys.argv[1] == "changed":
         root, mod = sys.argv[2], norm_dir(sys.argv[3])
         has_source_col, modules, project = parse(os.path.join(root, "project-planning", "status.md"))
         if not has_source_col:
             print("Module Map has no Source Path column")
             return 3
-        bad = []
-        for f in changed_files(root, mod):
+        if mod not in modules:
+            print(f"{mod} has no row in the Module Map")
+            return 2
+        files, untracked = changed_files(root, mod)
+        bad, notes = [], []
+        for f in files:
             code, reason = in_scope(f, mod, has_source_col, modules, project)
-            if code in (1, 2):
+            if code != 1:
+                continue
+            if f in untracked and owner_of(norm_path(f), modules, project) is None:
+                notes.append(f"note: untracked {f} is in no module's path — not counted against {mod}; whoever created it should add it to .gitignore or remove it")
+            else:
                 bad.append(reason or f)
-        for b in bad:
-            print(b)
+        for line in bad + notes:
+            print(line)
         return 1 if bad else 0
     cmd, status_path, mod = sys.argv[1], sys.argv[2], norm_dir(sys.argv[3])
     has_source_col, modules, project = parse(status_path)

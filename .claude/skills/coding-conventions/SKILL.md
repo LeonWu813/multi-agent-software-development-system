@@ -50,11 +50,7 @@ Define default coding conventions that all engineers follow. Defaults apply when
 </testing>
 
 <commit_messages>
-- Format: type(scope): description
-- Types: feat (new feature), fix (bug fix), docs, refactor, test, chore
-- Examples: feat(auth): add OAuth2 login, fix(api): handle null user in profile endpoint
-
-**Orchestration commits** (agent handoff commits made before stopping) use agent-role types defined by the system architecture — these are a parallel convention, not conventional commit types:
+Every commit an agent makes — code commits included — starts with its agent-role prefix. Plain conventional-commit types (`feat(auth): …`, `fix(api): …`) are not used by agents: the scope checks attribute each change by its prefix, so an unprefixed commit is counted against the Engineer who runs next. The human prefixes manual commits `human: …`.
 - Format: agent-name(module-or-mode): description
 - Examples: `engineer-mod-login(implement): session token validation`, `qa-mod-login: pass — all 8 ACs verified`, `pm(init): draft PRD for payment service`. Engineers must keep the exact `engineer-<dir>(<mode>):` prefix — `self-check.sh` uses it to find the module's own commits
 - Agent-role prefixes for every agent commit (no plain conventional-commit types like `feat(x):` from agents)

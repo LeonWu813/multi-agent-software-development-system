@@ -40,9 +40,9 @@ Before doing any work, read `project-planning/status.md` PM Updates to identify 
    → Follow `~/.claude/skills/doc-sync-methodology/workflows/delta-sync.md`
 
 3. **[TRIVIAL] tag** — A post-sync wording-only change with no structural impact.
-   → Passthrough: process every `[TRIVIAL]` entry dated after the last Sync Report in one run, oldest first, propagating each wording change to the affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
+   → Passthrough: process every `[TRIVIAL]` entry added since the last Sync Report in one run, in the order they appear in PM Updates (position, not date — same-day entries are common), propagating each wording change to the affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
 
-If no tag is present or the tag is unclear, stop and write an [AMBIGUITY] entry to `status.md` Sync Reports — do not guess.
+If the entries waiting since the last Sync Report mix tags, use the strongest one — `[SUBSTANTIVE]` (delta sync, which also carries the trivial wording changes) over `[TRIVIAL]`. If no tag is present or the tag is unclear, stop and write an [AMBIGUITY] entry to `status.md` Sync Reports — do not guess.
 </workflow_selection>
 
 <initial_sync_process>
@@ -120,5 +120,5 @@ next: [the exact command(s) the human runs next, with the agent's start word —
 timestamp: [ISO 8601]
 ```
 
-Always write `next:`. The handoff hook prints it as the next step, and it stays in `status.md`, so the coordinator can show it again later. Name real modules and IDs, never placeholders, whenever you know them.
+Always write `next:`. After a delta sync it names, for every module whose spec changed, that module's Engineer — `engineer-<dir> "bugfix"` if the module already passed QA (it must be updated to the new spec), `"implement"` if it has not been built yet. After the initial sync it names the first module in the Phase Plan. The handoff hook prints it as the next step, and it stays in `status.md`, so the coordinator can show it again later. Name real modules and IDs, never placeholders, whenever you know them.
 </last_action_format>

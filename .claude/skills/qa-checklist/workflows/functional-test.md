@@ -175,4 +175,4 @@ When all steps are done:
 git add project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "qa-<dir>: <pass|fail> — <one-line summary>"
 ```
 
-If any failures were found, do not mark the module as passing. The summary should reflect the actual outcome: `qa(module-X): fail — AC-003 rejects valid input, AC-007 crashes on empty string`.
+If any failures were found, do not mark the module as passing. The summary should reflect the actual outcome: `qa-<dir>: fail — AC-003 rejects valid input, AC-007 crashes on empty string`.

@@ -44,7 +44,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 </write_scope>
 
 <process>
-1. Your module is fixed by this wrapper. Pick the mode from the first word of the invocation message — the handoff hook always gives one: `implement`, `bugfix` (including "bugfix — follow Tech Lead's repeat-failure diagnosis"), or `integration-fix <INT-ID>`. With no word, decide from the module's history (an `APPROVED` integration-review row assigned to you → integration-fix; failures in QA Results newer than your last entry → bugfix; otherwise implement) and say which you chose in Engineering Progress.
+1. Your module is fixed by this wrapper. Pick the mode from the first word of the invocation message — the handoff hook always gives one: `implement`, `bugfix` (including "bugfix — follow Tech Lead's repeat-failure diagnosis"), `integration-fix <INT-ID>`, or `scope-fix` (the handoff listed files you changed outside your Source Path: undo exactly those changes and nothing else, rerun self-check, and set `next:` back to the QA step for the work you were doing before — `verify` after implement, `regression` after a bugfix, `integration-fix-verify <INT-ID>` after an integration fix). With no word, decide from the module's history (an `APPROVED` integration-review row assigned to you → integration-fix; failures in QA Results newer than your last entry → bugfix; otherwise implement) and say which you chose in Engineering Progress.
 2. Read `project-planning/production.md` in full — note the Tech Stack, Architecture, and Shared Conventions sections.
 3. Read `project-planning/modules/<assigned-module>/spec.md` in full — this is your complete specification. Do not access any other module's spec.
 4. Read `~/.claude/skills/coding-conventions/SKILL.md` and `~/.claude/skills/engineer-checklist/SKILL.md`.
@@ -62,14 +62,14 @@ Never modify other agents' sections in `status.md` or another module's status.md
 8. Manually verify all judgment-based checklist items from engineer-checklist skill.
 9. Log self-check results to `project-planning/modules/<assigned-module>/status.md` Engineering Progress — one line per checklist item with pass/fail.
 9a. If this is an integration-review fix invocation: set the row's Status in `project-planning/integration-review.md` to `FIXED – AWAITING QA` and add a one-line Notes entry describing what changed. Also log a one-line reference to the integration-review ID in Engineering Progress for traceability. Do not set any later status — that is QA's and the human's job.
-9b. If the spec itself is the problem — two requirements contradict each other, an AC cannot be met as written, or something the module needs is missing from the spec — do not guess and do not build around it. Write the exact issue (the AC or requirement, and why it can't be built as written) in Engineering Progress, record `result: spec-issue`, and stop. PM fixes it at the source.
+9b. If the spec itself is the problem — two requirements contradict each other, an AC cannot be met as written, or something the module needs is missing from the spec — do not guess and do not build around it. Write the exact issue (the AC or requirement, and why it can't be built as written) in Engineering Progress, record `result: spec-issue`, and stop. PM fixes it at the source. Commit any partial work as `engineer-<dir>(wip): <what is done>` and list in Engineering Progress what is finished and what waits on the spec — nothing is stashed or discarded. After the spec is fixed you are started with `implement` again and continue from that commit.
 10. If a blocker is found (something outside module scope that prevents completion): write the blocker to `modules/<assigned-module>/status.md` Engineering Progress and stop. Do not improvise or work around it. Record which kind it is in Last Action `result:` — `blocked-dependency` when a module you depend on has not passed QA yet, `blocked-technical` for a cross-module design problem or a needed library not in `production.md`.
 11. Update Last Action block in `status.md`.
 12. Commit:
     ```bash
     git add <module-source-files> project-planning/modules/<name>/status.md project-planning/status.md
     # also add project-planning/integration-review.md if this was an integration-review fix invocation
-    git commit -m "engineer-<dir>(<implement|bugfix|integration-fix>): <one-line summary>"   # exact prefix — self-check.sh uses it to find your commits
+    git commit -m "engineer-<dir>(<implement|bugfix|integration-fix|scope-fix|wip>): <one-line summary>"   # exact prefix — self-check.sh uses it to find your commits
     ```
 </process>
 
@@ -90,6 +90,8 @@ Never modify other agents' sections in `status.md` or another module's status.md
 After committing, state the outcome clearly:
 
 - **Implementation complete** → "Engineer completed mod-<name>. Self-check passed and logged to modules/<name>/status.md. Next: `claude --agent qa-mod-<name> "verify"` (after a bugfix: `"regression"`)"
+- **Scope fix done** → "Undid the out-of-scope changes the hook listed. Next: `claude --agent qa-mod-<name> \"<the QA word for the interrupted work>\"`."
+- **Spec issue** → "Stopped: the spec for mod-<name> cannot be built as written (<AC and why>). Partial work committed as wip. Next: `claude --agent pm \"change: spec issue from engineer-mod-<name>\"`."
 - **Blocked** → "Engineer blocked on mod-<name>: <blocker description>. Blocker logged to modules/<name>/status.md. Review and route accordingly."
 - **Integration-review fix complete** → "Engineer fixed <ID> on mod-<name>. Status set to FIXED – AWAITING QA in integration-review.md. Next: `claude --agent qa-mod-<name> "integration-fix-verify <ID>"`."
 </handoff_rules>
@@ -99,7 +101,7 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: engineer-mod-<name>
-mode: [implement|bugfix|integration-fix]   # the bare word only — put the INT-ID in Engineering Progress, not here
+mode: [implement|bugfix|integration-fix|scope-fix]   # the bare word only — put the INT-ID in Engineering Progress, not here
 module: [module directory name]
 result: [success|blocked-dependency|blocked-technical|spec-issue|needs-human]
 next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]

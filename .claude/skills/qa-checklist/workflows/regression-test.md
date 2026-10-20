@@ -102,5 +102,5 @@ git add project-planning/modules/<dir>/status.md project-planning/status.md && g
 ```
 
 Examples:
-- `qa(module-X): pass — regression test, AC-003 fix verified, no new regressions`
-- `qa(module-X): fail — regression test, AC-003 still failing + new regression AC-001`
+- `qa-<dir>: pass — regression test, AC-003 fix verified, no new regressions`
+- `qa-<dir>: fail — regression test, AC-003 still failing + new regression AC-001`

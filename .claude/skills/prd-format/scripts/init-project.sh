@@ -135,7 +135,8 @@ Test:
      | MOD-ID  | Directory        | Module Name    | Source Path              |
      |---------|------------------|----------------|--------------------------|
      | MOD-001 | mod-login        | User Login     | src/login/               |
-     No two Source Paths may overlap or nest (src/ and src/ui/ cannot both appear).
+     No two Source Paths may overlap or nest (src/ and src/ui/ cannot both appear). If it
+     happens anyway, the scope check treats the longest matching path as the owner.
 
      Project files are root-level files no single module's code lives in (manifests,
      lockfiles, .env.example, CI config). One module owns them all; its Engineer is the only
