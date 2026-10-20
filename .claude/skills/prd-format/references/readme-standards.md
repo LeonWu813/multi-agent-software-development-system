@@ -23,6 +23,7 @@ Reference for PM when producing `README.md` at final project checkpoint.
 - **Key Design Decisions** — explain non-obvious choices (why this tech, why this pattern); saves future maintainers from re-litigating settled decisions
 - **Domain Architecture** — directory layout with one-line descriptions; useful for codebases with non-obvious structure
 - **Troubleshooting** — common setup failures and their fixes
+- **Known issues** — required when the final checkpoint accepted any integration-review row as a known issue: one line per item with its INT-ID, what it affects, and any workaround
 
 ---
 

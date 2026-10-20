@@ -40,7 +40,7 @@ Before doing any work, read `project-planning/status.md` PM Updates to identify 
    → Follow `~/.claude/skills/doc-sync-methodology/workflows/delta-sync.md`
 
 3. **[TRIVIAL] tag** — A post-sync wording-only change with no structural impact.
-   → Passthrough: propagate the wording change to affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
+   → Passthrough: process every `[TRIVIAL]` entry dated after the last Sync Report in one run, oldest first, propagating each wording change to the affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
 
 If no tag is present or the tag is unclear, stop and write an [AMBIGUITY] entry to `status.md` Sync Reports — do not guess.
 </workflow_selection>
@@ -116,6 +116,9 @@ agent: doc-sync
 mode: [initial|delta|trivial]
 module: n/a
 result: [success|needs-pm]
+next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]
 timestamp: [ISO 8601]
 ```
+
+Always write `next:`. The handoff hook prints it as the next step, and it stays in `status.md`, so the coordinator can show it again later. Name real modules and IDs, never placeholders, whenever you know them.
 </last_action_format>

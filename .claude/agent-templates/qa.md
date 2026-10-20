@@ -68,12 +68,14 @@ Record the workflow in Last Action `mode` as the bare word: `verify`, `regressio
    - No features implemented beyond what the spec requires (gold-plating check)
    - No spec requirements left unimplemented
    - Module integrates correctly with shared conventions in production.md
+7a. **If this module's spec lists Dependencies**, also run `bash ~/.claude/skills/integration-review/scripts/scan-integration.sh <project-root>` after your checks pass, and copy any hit that involves this module into QA Results under `### Integration notes (for Tech Lead)`. These are leads, not failures — Tech Lead's phase-end review reads them.
 8. For each failure: write a specific, reproducible description — include the input, expected behavior, and actual behavior. "Test failed" is not acceptable; "AC-028: when the DB insert fails after a successful disk write, the file remains on disk (expected: file deleted)" is.
 9. Classify each failure: **implementation bug** (send back to Engineer), **spec issue** (escalate to PM — may require PRD change), or **repeat failure** (see 9a).
 9a. **Before routing any implementation-bug failure to Engineer, check for repeat-failure escalation:**
     - Check `project-planning/modules/<assigned-module>/status.md` for an existing `AC-<ID>: ESCALATED TO TECH LEAD — open` line for this AC. If present, route to `tech-lead`, not Engineer — regardless of how many times it's failed since. Do not re-count; an open marker means Tech Lead already owns this AC.
     - If no marker is present, count how many times this exact AC has failed across your prior QA Results entries for this module (including this one). After a marker was flipped to `resolved`, start a fresh count from that point. On the **3rd failure**, do not route to Engineer — instead escalate to `tech-lead` with `result: repeat-failure` and leave the marker creation to Tech Lead (you do not write the marker yourself).
-    - On the 1st or 2nd failure with no marker present, route to Engineer as normal.
+    - **Early escalation on an identical failure:** on the 2nd failure of an AC, compare it with the 1st. If the same AC fails with the same observed output (the same `Actual=`, error message, or screenshot evidence) — the fix changed nothing visible — escalate now as `repeat-failure` instead of waiting for a 3rd round.
+    - Otherwise, on the 1st or 2nd failure with no marker present, route to Engineer as normal.
     - If your verification for an AC that has an open `ESCALATED TO TECH LEAD` marker **passes**, flip that line to `— resolved <date>` — this is the one case where you update a line Tech Lead wrote.
 9b. **One run, one `result:`** — when ACs fail for different reasons, record the most urgent: `spec-issue` over `setup-drift` over `repeat-failure` over `bugs-found`. Use `needs-signoff` when you stopped for the human to run a UI test script, and `needs-human` when you are blocked on anything else the human must do (e.g. the server will not start). List every failure in QA Results either way, and name the others in your handoff message so the human can route them after the first is resolved.
 10. Write results to `project-planning/modules/<assigned-module>/status.md` QA Results — one entry per AC, pass/fail with details for failures.
@@ -122,6 +124,10 @@ mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
 result: [success|bugs-found|spec-issue|repeat-failure|setup-drift|needs-signoff|needs-human]
 ac: [repeat-failure only: every AC routed to Tech Lead in this run, comma-separated (e.g. AC-004, AC-031) — the hook checks each AC's escalation marker]
+pending: [the other results this run also produced, below the one in result: — e.g. "bugs-found (AC-012, AC-014)". The hook reminds the human; keep listing them in every later run until they are fixed]
+next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]
 timestamp: [ISO 8601]
 ```
+
+Always write `next:`. The handoff hook prints it as the next step, and it stays in `status.md`, so the coordinator can show it again later. Name real modules and IDs, never placeholders, whenever you know them.
 </last_action_format>

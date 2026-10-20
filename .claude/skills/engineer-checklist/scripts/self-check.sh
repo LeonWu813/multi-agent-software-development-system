@@ -24,37 +24,15 @@ if [[ ! -d "$MODULE_DIR" ]]; then
   exit 1
 fi
 
-# Snapshot the changes BEFORE build and test run, so their output (caches, bytecode,
-# coverage) is never mistaken for the engineer's work. The snapshot covers uncommitted
-# and untracked files plus every file changed by this module's own commits since the
-# last commit that was not this engineer's (so committed out-of-scope work is caught too).
-SCOPE_SNAPSHOT=""
+# Scope check runs BEFORE build and test, so their output (caches, bytecode, coverage) is never
+# mistaken for the engineer's work. module_scope.py is the same check handoff.sh runs when the
+# Engineer stops: uncommitted + untracked files, plus this module's own engineer-<dir>(...) commits.
+SCOPE_PY="$(cd "$(dirname "$0")" && pwd)/module_scope.py"
+SCOPE_OUT=""; SCOPE_RC=0
 if git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
-  BASE=""
-  while IFS='|' read -r sha subject; do
-    case "$subject" in
-      "engineer-$MODULE_NAME("*|"engineer-$MODULE_NAME:"*) continue ;;
-      *) BASE="$sha"; break ;;
-    esac
-  done < <(git -C "$PROJECT_ROOT" log --format='%H|%s' 2>/dev/null)
-  # No other commit at all (the engineer's commits are the whole history): compare with the empty tree
-  [[ -z "$BASE" ]] && git -C "$PROJECT_ROOT" rev-parse -q --verify HEAD >/dev/null 2>&1 && BASE=$(git -C "$PROJECT_ROOT" hash-object -t tree /dev/null)
-  COMMITTED=""
-  [[ -n "$BASE" ]] && COMMITTED=$(git -C "$PROJECT_ROOT" -c core.quotePath=false diff --name-only "$BASE" HEAD 2>/dev/null)
-  # -z keeps names with spaces intact; a rename entry is followed by its old path, which is skipped
-  UNCOMMITTED=$(git -C "$PROJECT_ROOT" status --porcelain -z --untracked-files=all 2>/dev/null | python3 -c '
-import sys
-parts = sys.stdin.buffer.read().decode("utf-8", "replace").split("\0")
-i = 0
-while i < len(parts):
-    e = parts[i]
-    if len(e) > 3:
-        print(e[3:])
-        if e[0] in "RC":
-            i += 1
-    i += 1
-')
-  SCOPE_SNAPSHOT=$(printf '%s\n%s\n' "$COMMITTED" "$UNCOMMITTED" | sed '/^$/d' | sort -u)
+  SCOPE_OUT=$(python3 "$SCOPE_PY" changed "$PROJECT_ROOT" "$MODULE_NAME" 2>&1); SCOPE_RC=$?
+else
+  SCOPE_RC=4
 fi
 
 PASS_COUNT=0
@@ -160,30 +138,14 @@ echo "--- Checking git scope for module: $MODULE_NAME"
 if ! git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
   skip "Git scope — $PROJECT_ROOT is not a git repository"
 else
-  # Scope rules (Source Path, project files, nesting) live in module_scope.py, shared with pstack-guard.sh
   STATUS_MD="$PROJECT_ROOT/project-planning/status.md"
-  SCOPE_PY="$(cd "$(dirname "$0")" && pwd)/module_scope.py"
   SOURCE_PATHS=$(python3 "$SCOPE_PY" paths "$STATUS_MD" "$MODULE_NAME" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')
-  CHANGED_FILES="$SCOPE_SNAPSHOT"   # taken at the start of the script, before build and test
-
-  if [[ -z "$SOURCE_PATHS" ]]; then
-    skip "Git scope — no Source Path for $MODULE_NAME in the status.md Module Map (add the column at PM finalize)"
-  elif [[ -z "$CHANGED_FILES" ]]; then
-    skip "Git scope — no changes found for $MODULE_NAME (nothing uncommitted, no engineer-$MODULE_NAME commits on top)"
-  else
-    OUT_OF_SCOPE=""
-    while IFS= read -r filepath; do
-      [[ -z "$filepath" ]] && continue
-      reason=$(python3 "$SCOPE_PY" check "$STATUS_MD" "$MODULE_NAME" "$filepath" 2>/dev/null) || OUT_OF_SCOPE+="  $filepath${reason:+ — $reason}"$'\n'
-    done <<< "$CHANGED_FILES"
-
-    if [[ -z "$OUT_OF_SCOPE" ]]; then
-      pass "Git scope — all changes are within $MODULE_NAME's scope ($SOURCE_PATHS, plus its planning files)"
-    else
-      fail "Git scope — changes outside $MODULE_NAME's scope ($SOURCE_PATHS):"
-      printf "%s" "$OUT_OF_SCOPE"
-    fi
-  fi
+  case "$SCOPE_RC" in
+    0) pass "Git scope — every change is within $MODULE_NAME's scope (${SOURCE_PATHS:-no paths}, plus its planning files)" ;;
+    3) skip "Git scope — the status.md Module Map has no Source Path column (add it at PM finalize)" ;;
+    *) fail "Git scope — changes outside $MODULE_NAME's scope:"
+       printf '%s\n' "$SCOPE_OUT" | sed 's/^/  /' ;;
+  esac
 fi
 
 # ---------------------------------------------------------------------------

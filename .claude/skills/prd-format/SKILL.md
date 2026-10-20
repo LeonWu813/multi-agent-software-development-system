@@ -99,7 +99,7 @@ These edits happen during production: change requests from the user, escalations
 2. Make the smallest change that addresses the request — do not refactor unrelated sections
 3. Assign the next available IDs for any new user stories, modules, or acceptance criteria
 4. Note in `status.md` if the change affects module boundaries, dependencies, or the phase plan
-5. Ask the user: is this change **trivial** (wording-only, no structural impact on modules/dependencies/phases) or **substantive** (affects scope, modules, dependencies, or phases)? Tag the change summary in `status.md` accordingly with `[TRIVIAL]` or `[SUBSTANTIVE]` — this determines whether Doc-Sync runs the full delta-sync or a lightweight passthrough
+5. Ask the user: is this change **trivial** (wording-only, no structural impact on modules/dependencies/phases) or **substantive** (affects scope, modules, dependencies, or phases)? Tag the change summary in `status.md` accordingly with `[TRIVIAL]` or `[SUBSTANTIVE]` — this determines whether Doc-Sync runs the full delta-sync or a lightweight passthrough. Add `[ARCHITECTURAL]` on the same line when the user says the change alters how the system is built; that tag only routes the change through the coordinator's `/pstack:how` step and Tech Lead first
 6. Re-run the full quality checklist on the updated PRD before declaring complete
 7. If the change adds a new module: propose a directory name and source path, confirm with user, create the directory, and update the Module Map in `status.md` — do this before handing off to Doc-Sync. Doc-Sync will create `modules/<new-mod>/status.md` and generate `engineer-mod-<name>.md` + `qa-mod-<name>.md` during the sync.
 </change_protocol>

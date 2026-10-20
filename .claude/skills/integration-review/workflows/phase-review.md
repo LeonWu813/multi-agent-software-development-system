@@ -5,6 +5,7 @@ Run this the first time Tech Lead is invoked for a phase — i.e. all modules in
 1. Read `project-planning/status.md` — confirm the current phase and which modules belong to it (Module Map + Phase Plan).
 2. Read every module's `spec.md` and `status.md` for modules in the **current phase**, in full. Do not sample — a conflict between two modules is invisible if you only read one of them. Conflict and leak checks (step 5) are scoped to these modules only — new interactions only exist between modules that are new to each other.
 3. Read `project-planning/production.md` Shared Conventions and Tech Stack — this is the baseline every module should already follow; deviations between modules are a common source of conflicts.
+3a. Read every `### Integration notes (for Tech Lead)` block in this phase's module status files — QA ran the scan as each module with dependencies passed. Treat them as leads, like the scan below.
 4. Run the automated first pass:
    ```bash
    bash ~/.claude/skills/integration-review/scripts/scan-integration.sh <project-root>

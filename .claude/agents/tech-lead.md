@@ -220,7 +220,7 @@ agent: tech-lead
 mode: [init-review|pre-sync-review|setup-confirmation|change-review|on-demand-review|integration-review|record-decisions|confirm-fix|repeat-failure-review]
 module: [n/a, or the module directory name for repeat-failure-review]
 ac: [repeat-failure-review only: the AC-ID]
-next: [change-review / on-demand-review: the exact next command]
+next: [the exact next command with its start word — always; after setup-confirmation following [INIT], name the agent to resume, e.g. claude --agent qa-mod-auth "verify"]
 result: [success | needs-human | setup-changed (any review that updated setup.md / infra files), or for integration-review: issues-found|clean]
 timestamp: [ISO 8601]
 ```

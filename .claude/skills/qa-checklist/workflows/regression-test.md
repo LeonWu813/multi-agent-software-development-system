@@ -34,6 +34,7 @@ If the original scenario now produces the expected output: the bug is fixed. Rec
 If the original scenario still fails: the fix did not work. Record the new `FAIL` entry with updated `Input=`, `Actual=`, `Expected=`. Before routing it, run the repeat-failure check from your agent instructions (qa.md step 9a):
 - An `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC in the module's status.md → route to Tech Lead (`result: repeat-failure`), never to Engineer.
 - No marker, and this is the 3rd failure of this AC across your QA Results (counting only from the last time a marker for it was resolved) → route to Tech Lead the same way.
+- No marker, 2nd failure, and the observed output is identical to the 1st failure (the fix changed nothing visible) → escalate now, the same way.
 - List every AC routed to Tech Lead this run in Last Action `ac:`, comma-separated.
 - Otherwise → route back to Engineer (`result: bugs-found`).
 

@@ -44,12 +44,14 @@ SKILL.md uses semantic XML tags, not markdown headings:
 
 Every framework agent runs as its own direct session, started by the human: `claude --agent <name>`. The coordinator (the default Claude Code session) never starts framework agents as subagents — a subagent cannot ask the human anything, so PM's approvals, QA's UI sign-off, and Tech Lead's evidence requests would break, and the handoff hook's message reaches only the human. The coordinator tells the human which agent to run and what to say to it, and runs the pstack steps itself (see Handoff Chains → pstack Steps).
 
+Every agent that writes a Last Action block (all but Retrospective) always records `next:` — the exact command the human runs next, with the agent's start word, including any coordinator pstack step the project `CLAUDE.md` table requires, and naming real modules and IDs rather than placeholders whenever it knows them. The handoff hook prints it, and because it stays in `status.md` the coordinator can show it again later. The hook's own per-mode defaults remain as the fallback when `next:` is missing.
+
 ### PM
 
 - **File**: `.claude/agents/pm.md` (model: opus)
 - **Single Responsibility**: Own `prd.md` + all user communication
 - **Tools**: Read, Write, Grep, Glob, Bash, Skill (allowlist: `prd-format`, `pstack:sharpen`, `pstack:unslop`, `pstack:technical-writing`, plus the project's own `.claude/skills/<name>/` skills — enforced by `pstack-guard.sh`). `sharpen` runs once at the start of init; `unslop`/`technical-writing` only on prose PM wrote or changed in this invocation, wording only — every ID, number, and AC must mean the same afterwards
-- **Write Scope**: `prd.md`; project-level `status.md` PM sections only (Last Action, Build Config, PM Updates, Module Map — PM is the only agent `pstack-guard.sh` lets change it — Checkpoint History, Decisions (user decisions that are not PRD content, e.g. "defer offline mode to v2"), Skill Recommendations, and Current Phase — advanced at checkpoint, and also updated when a change adds a module to the current phase); `modules/mod-*/` directory + `.gitkeep` creation only (never files inside a module directory); `README.md` at the project root, final checkpoint only
+- **Write Scope**: `prd.md`; project-level `status.md` PM sections only (Last Action, Build Config, PM Updates, Module Map — PM is the only agent `pstack-guard.sh` lets change it — Checkpoint History, Decisions (user decisions that are not PRD content, e.g. "defer offline mode to v2", or "verify skill: declined"), Skill Recommendations, and Current Phase — advanced at checkpoint, and also updated when a change adds a module to the current phase); `modules/mod-*/` directory + `.gitkeep` creation only (never files inside a module directory); `README.md` at the project root, final checkpoint only
 - **Read-only exceptions**: `production.md` and `setup.md` for the final README; `integration-review.md` for the checkpoint gate; `modules/*/status.md` in change and checkpoint mode (escalations and QA results live there)
 - **Skills Used**: prd-format
 - **Invocation**: `claude --agent pm`, usually with the mode word the hook prints (`"iterate"`, `"finalize"`, `"change"`, `"checkpoint"`). Without one, PM picks the mode from where the project is, top rule first; when both checkpoint and change apply, checkpoint wins (a change the user also wants comes after it)
@@ -57,16 +59,16 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - `init` (no `project-planning/` yet): run `pstack:sharpen` on the request, then restate the goal in two or three sentences and wait for the user to correct it; run `scripts/init-project.sh`; gather requirements through numbered questions; fill `prd.md` from `templates/prd.tmpl.md`; review against `references/anti-patterns.md` and the quality checklist; confirm with the user before writing; commit `project-planning/` together with the scaffolded root `CLAUDE.md`. Next: Tech Lead
   - `iterate` (PRD drafted, `[INIT]` not yet tagged): apply Tech Lead feedback or user edits using the pre-sync iteration protocol — no `[TRIVIAL]`/`[SUBSTANTIVE]` tags. Notes in PM Updates which Tech Lead Reviews entry each change answers (never writes in Tech Lead Reviews). A `Proposed Convention:` the user approves goes into section 9 Adopted Conventions as the next `CONV-NNN` right away — the initial sync copies it
   - `finalize` (user gave final approval): **setup gate** — a `### Setup Confirmation` block must exist in Tech Lead Reviews and no `### Setup Changed` entry may be newer than it; write Build Config (`Build:` / `Lint:` / `Test:`); propose and confirm the **Module Map** — a `mod-<kebab-name>` directory and a **Source Path** per module (no path claimed by two modules, and none nested inside another — `src/` and `src/ui/` cannot both appear; shared code has one owner module) plus a `Project files: <dir> | <paths>` line naming the one module that owns the root-level files no Source Path covers (package manifests, lockfiles, `.env.example`, CI config) — then create each directory with `.gitkeep`; tag a PM Updates entry `[INIT]`. Next: Doc-Sync
-  - `change` (`[INIT]` already tagged): a requirements change from the user, an escalation read from `modules/<mod>/status.md`, or Doc-Sync's `[AMBIGUITY]`/`[CONFLICT]`/`[BLOCKER]` questions in Sync Reports. Smallest change, quality checklist, confirm with the user, tag `[TRIVIAL]` or `[SUBSTANTIVE]` (answers to Doc-Sync questions are always `[SUBSTANTIVE]` and list each marker they resolve). A Tech Lead convention the user approved goes into PRD section 9 **Adopted Conventions** as the next `CONV-NNN`, citing its Tech Lead Reviews entry, tagged `[SUBSTANTIVE]`. A changed build, lint, or test command updates `## Build Config` and is tagged `[TRIVIAL] Build Config changed`, so Doc-Sync's passthrough copies it into `production.md` (which `self-check.sh` and `run-qa.sh` read). A new module gets its directory, Source Path, and Module Map row before the handoff (and the `## Current Phase` line is updated if it joins the current phase). When a change moves code from one module's Source Path to another's (e.g. a new owner module for shared code), the ACs about that code move to the new owner in the PRD too, confirmed with the user. Increments the PRD revision
-  - `checkpoint` (`[INIT]` tagged, every module in the current phase passed QA, and every integration-review row resolved): **gate** — `integration-review.md` must exist, Tech Lead Reviews must have an Integration & Optimization Review entry for the current phase, and every row in the file — whatever its Phase column says, so a carried-forward row approved again in this phase still has to be closed — must be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, `SPLIT`, or `NO ISSUES`; anything else (`PROPOSED` through `HUMAN VERIFIED`) is open and stops the checkpoint. Then compile module results, present them, get explicit approval, write `Phase <N> approved — <date> — commit: <hash>` to Checkpoint History, and advance `## Current Phase` to the next phase. On the final phase: write `README.md` per `references/readme-standards.md` (confirmed with the user) and record `result: project-complete`
+  - `change` (`[INIT]` already tagged): a requirements change from the user, an escalation read from `modules/<mod>/status.md`, or Doc-Sync's `[AMBIGUITY]`/`[CONFLICT]`/`[BLOCKER]` questions in Sync Reports. Smallest change, quality checklist, confirm with the user, tag `[TRIVIAL]` or `[SUBSTANTIVE]` (answers to Doc-Sync questions are always `[SUBSTANTIVE]` and list each marker they resolve). PM also asks whether the change is **architectural** (it changes how the system is built — data model, module boundaries, integrations, tech stack) and, on a yes, adds `[ARCHITECTURAL]` to the PM Updates entry; the hook routes such a change to the coordinator's `/pstack:how` step and Tech Lead before Doc-Sync. A requirement an Engineer reported it cannot build as written (`result: spec-issue`) arrives here too, as `pm "change: spec issue from engineer-mod-<name>"`. A Tech Lead convention the user approved goes into PRD section 9 **Adopted Conventions** as the next `CONV-NNN`, citing its Tech Lead Reviews entry, tagged `[SUBSTANTIVE]`. A changed build, lint, or test command updates `## Build Config` and is tagged `[TRIVIAL] Build Config changed`, so Doc-Sync's passthrough copies it into `production.md` (which `self-check.sh` and `run-qa.sh` read). A new module gets its directory, Source Path, and Module Map row before the handoff (and the `## Current Phase` line is updated if it joins the current phase). When a change moves code from one module's Source Path to another's (e.g. a new owner module for shared code), the ACs about that code move to the new owner in the PRD too, confirmed with the user. Increments the PRD revision
+  - `checkpoint` (`[INIT]` tagged, every module in the current phase passed QA, and every integration-review row resolved): **gate** — `integration-review.md` must exist, Tech Lead Reviews must have an Integration & Optimization Review entry for the current phase, and every row in the file — whatever its Phase column says, so a carried-forward row approved again in this phase still has to be closed — must be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, `SPLIT`, or `NO ISSUES`; anything else (`PROPOSED` through `HUMAN VERIFIED`) is open and stops the checkpoint. Then compile module results, present them, get explicit approval, write `Phase <N> approved — <date> — commit: <hash>` to Checkpoint History, and advance `## Current Phase` to the next phase. On the final phase: every `DEFERRED` row in `integration-review.md` must be decided now — the user approves it (it goes back to Tech Lead and blocks this checkpoint until closed), rejects it, or accepts it as a known issue, listed in a "Known issues" section of the README; nothing stays `DEFERRED` past the last phase. Then write `README.md` per `references/readme-standards.md` (confirmed with the user) and record `result: project-complete`. Every checkpoint commit is tagged `git tag checkpoint-<N>` as a rollback point (the human pushes it with `git push --tags`)
 - **Input**: User requirements, change requests, escalations in `modules/*/status.md`, Doc-Sync questions in Sync Reports, Tech Lead Reviews
 - **Output**: Approved `prd.md` + tagged change summary in `status.md`
 - **Handoff**:
   - After `init`: → Tech Lead (init review)
   - After `iterate`: → Tech Lead (pre-sync review) if the changes are architectural; otherwise PM `finalize` once the user approves
   - After `finalize`: → Doc-Sync (initial sync)
-  - After `change`: → coordinator runs `/pstack:how`, then Tech Lead (change review) if architectural; otherwise → Doc-Sync
-  - After `checkpoint`: → `engineer-mod-<first module of the new Current Phase> "implement"` (specs for every phase already exist from the initial sync), or project complete. A checkpoint with any other result (stopped at the gate, or not approved) announces no next phase — the hook points to PM's last message for what is still open
+  - After `change`: → coordinator runs `/pstack:how`, then Tech Lead (change review) if the entry is tagged `[ARCHITECTURAL]`; otherwise → Doc-Sync
+  - After `checkpoint`: → `engineer-mod-<first module of the new Current Phase> "implement"` (specs for every phase already exist from the initial sync) — preceded, when `.claude/skills/verify/` exists, by the coordinator refreshing it with `/pstack:maintain-verification-skill` (with the human's OK) — or project complete. A checkpoint with any other result (stopped at the gate, or not approved) announces no next phase — the hook points to PM's last message for what is still open
 - **Constraints**:
   - Never writes to `prd.md` without explicit user approval — silence, "maybe", or a follow-up question is not approval
   - Never tags `[INIT]` without a `### Setup Confirmation` entry in `status.md` (and none superseded by a newer `### Setup Changed`) — a coordinator's or anyone's assertion is not enough; the artifact must be in the file
@@ -75,7 +77,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - If requirements are ambiguous, asks numbered questions and waits; no `[DECISION NEEDED]` markers remain at handoff
   - Runs the full quality checklist before every handoff, not just the first draft
   - Never touches `production.md`, `modules/*/spec.md`, `integration-review.md` (except the read at checkpoint), source code, or `.claude/` files (its own `~/.claude/skills/prd-format/` is the exception)
-  - Commits before stopping: `git commit -m "pm(<mode>): <summary>"`
+  - Commits before stopping: `git commit -m "pm(<mode>): <summary>"`; a checkpoint commit is also tagged `checkpoint-<N>`
 
 ### Doc-Sync
 
@@ -90,7 +92,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
 - **Workflow Selection** (from the PM Updates tag):
   - `[INIT]`: follow `workflows/initial-sync.md`
   - `[SUBSTANTIVE]`: follow `workflows/delta-sync.md` — syncs **every** PM Updates entry dated after the last Sync Report, oldest first (a `[TRIVIAL] Build Config changed` entry in that window still re-copies Build Config)
-  - `[TRIVIAL]`: passthrough — propagate the wording to affected docs, write a brief sync note, skip `verify-sync.sh`. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again
+  - `[TRIVIAL]`: passthrough — process every `[TRIVIAL]` entry dated after the last Sync Report in one run, oldest first, propagating each wording change to the affected docs only; write a brief sync note, skip `verify-sync.sh`. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again
   - No tag or unclear tag: write an `[AMBIGUITY]` entry to Sync Reports and stop
 - **Per-module wrappers**: for each module, Doc-Sync generates `engineer-<dir>.md` and `qa-<dir>.md`, where `<dir>` is the Module Map directory (`mod-login` → `engineer-mod-login`). They are built from `~/.claude/agent-templates/engineer.md` and `qa.md`: the template's frontmatter `tools` and `model` lines are copied exactly and its body verbatim, `name:` is set to the wrapper name, and the wrapper hardcodes the module's spec path, its Source Path, and read access to each dependency module's `status.md`. A delta sync regenerates the wrappers of every module whose Source Path, dependencies, or directory changed, so no wrapper names an old Source Path. After a sync that adds or regenerates a wrapper, the human opens a new terminal so it loads
 - **Handoff**: `result: success` → human reviews the sync report → `engineer-mod-<first module in the Phase Plan not yet built> "implement"`. If the sync created an owner module that takes over code other modules already hold, the handoff first sends the human to `tech-lead "log migration rows for <owner dir>"`. `result: needs-pm` → `pm "change"` before any engineering starts
@@ -122,8 +124,8 @@ Every framework agent runs as its own direct session, started by the human: `cla
 - **Modes** (Last Action `mode`):
   - `init-review` — mandatory review of the first PRD draft (`production.md` does not exist yet): checks installed tool versions against the Tech Stack, evaluates feasibility, risks, dependencies, gaps, shared conventions, and overlapping modules; creates `.gitignore`, `setup.md` (ending with a Setup Confirmation section, and naming the exact build command — Build Config does not exist yet), and for backend projects `.env.example` and `docker-compose.yml`. Init is stack-neutral: `.gitignore` entries come from the PRD tech stack (always `.env`, IDE/OS files, logs; plus Java/Maven, Node/Vite, Python — `__pycache__/`, `.venv/`, `.pytest_cache/` and the like — and any other build, cache, or coverage output the stack produces); `setup.md` covers every API key or secret the PRD needs, with no stack-specific steps baked in
   - `pre-sync-review` — re-review of a PM `iterate` revision the human judged architectural; reviews only what changed. If the revision changes the tech stack or infrastructure, updates `setup.md` (and the infrastructure files), adds a `### Setup Changed — <date>` entry listing what the human must redo, and records `result: setup-changed`
-  - `setup-confirmation` — the human says "Setup is complete": verifies that every service `docker-compose.yml` defines is running (`docker compose ps`, backend) or that the build command named in `setup.md` exits cleanly (frontend-only), checks `.env` for existence and gitignore status only, and records `### Setup Confirmation — <date>` stating what it ran and saw. Also used after `[INIT]`, when an on-demand review changed setup. The entry's closing line differs: before `[INIT]` "PM agent may now finalize and tag [INIT].", after `[INIT]` "Setup re-confirmed after the change listed in Setup Changed." (the hook detects `[INIT]` only in PM Updates, so this text does not confuse it)
-  - `change-review` — a mid-project PRD change the human judged architectural. Records `next:` in Last Action — the exact next command, with the agent's start word
+  - `setup-confirmation` — the human says "Setup is complete": verifies that every service `docker-compose.yml` defines is running (`docker compose ps`, backend) or that the build command named in `setup.md` exits cleanly (frontend-only), checks `.env` for existence and gitignore status only, and records `### Setup Confirmation — <date>` stating what it ran and saw. Also used after `[INIT]`, when an on-demand review changed setup — then `next:` names the agent to resume (e.g. `claude --agent qa-mod-auth "verify"`). The entry's closing line differs: before `[INIT]` "PM agent may now finalize and tag [INIT].", after `[INIT]` "Setup re-confirmed after the change listed in Setup Changed." (the hook detects `[INIT]` only in PM Updates, so this text does not confuse it)
+  - `change-review` — a mid-project PRD change tagged `[ARCHITECTURAL]`. Records `next:` in Last Action — the exact next command, with the agent's start word (every mode records `next:`; for `change-review` and `on-demand-review` the hook's fallback just points at the review)
   - `on-demand-review` — an Engineer `blocked-technical` blocker (from `modules/<mod>/status.md` Engineering Progress), a QA pattern suggesting a design problem, QA-reported setup drift (`setup.md` out of step with the real infrastructure — Tech Lead updates it with the human's approval, `result: setup-changed`), a blast-radius report that changes the plan for an integration fix, or "log migration rows for <owner>" — after Doc-Sync created a new owner module for code other modules already hold, one `PROPOSED` integration-review row per module that must delete its copy and use the owner, with `next:` asking the human to decide them (`tech-lead "decisions: ..."`). Records `next:` like `change-review` (e.g. `next: claude --agent engineer-mod-auth "integration-fix INT-001a"`, or `next: claude --agent qa-mod-auth "verify"` when nothing needed changing)
   - `integration-review` — mandatory phase-end review after every module in the current phase passes QA; `result: clean` (a `NO ISSUES` row) or `issues-found`
   - `record-decisions` — the human's approve / reject / defer decisions on `PROPOSED` items (`workflows/record-decisions.md`); a fix spanning modules splits into letter-suffixed rows and the original becomes `SPLIT`
@@ -150,23 +152,24 @@ Every framework agent runs as its own direct session, started by the human: `cla
 - **File**: `.claude/agent-templates/engineer.md` (base template, model: sonnet) → generated `.claude/agents/engineer-<dir>.md` per module. Always run the wrapper, never the base template
 - **Single Responsibility**: Implement one assigned module
 - **Tools**: Read, Write, Edit, Bash, Grep, Glob, Skill (allowlist: `coding-conventions`, `engineer-checklist`, `pstack:tdd`, `pstack:deslop`, `pstack:typescript-best-practices`, plus the project's own `.claude/skills/<name>/` skills). These serve the spec and never widen it
-- **Write Scope**: source code within the module's **Source Path** (its Module Map row) + the project files (manifests, lockfiles, `.env.example`, CI config on the Module Map `Project files:` line) if this module is their owner + its own planning files: `modules/<dir>/status.md` (Engineering Progress — never its `spec.md`), project-level `status.md` (Last Action and Skill Recommendations), and `integration-review.md` (`Status`/`Notes` on rows assigned to this module, `IN PROGRESS`/`FIXED – AWAITING QA` only). Ownership is decided by longest matching path. The rules live in one shared helper, `engineer-checklist/scripts/module_scope.py`, and are enforced twice: `self-check.sh` fails on any change outside the scope, and `pstack-guard.sh` blocks Write/Edit calls outside it at the tool level (and blocks every write when the module has no Module Map row)
+- **Write Scope**: source code within the module's **Source Path** (its Module Map row) + the project files (manifests, lockfiles, `.env.example`, CI config on the Module Map `Project files:` line) if this module is their owner + its own planning files: `modules/<dir>/status.md` (Engineering Progress — never its `spec.md`), project-level `status.md` (Last Action and Skill Recommendations), and `integration-review.md` (`Status`/`Notes` on rows assigned to this module, `IN PROGRESS`/`FIXED – AWAITING QA` only). Ownership is decided by longest matching path. The rules live in one shared helper, `engineer-checklist/scripts/module_scope.py`, and are enforced three times: `pstack-guard.sh` blocks Write/Edit calls outside it at the tool level (and blocks every write when the module has no Module Map row); `self-check.sh` fails on any change outside the scope (`module_scope.py changed`); and `handoff.sh` runs that same `changed` check itself whenever an `engineer-*` agent stops, overriding the Engineer's result with a "Scope violation … Fix first" message on any out-of-scope file — this catches shell writes the guard cannot see, and does not trust the Engineer's own self-check
 - **Skills Used**: coding-conventions, engineer-checklist
 - **Invocation**: `claude --agent engineer-mod-<name> "<word>"` — the mode comes from the first word, which the hook always prints: `"implement"`, `"bugfix"` (including `"bugfix — follow Tech Lead's repeat-failure diagnosis for AC-NNN"`), or `"integration-fix <INT-ID>"`. With no word, Engineer decides from the module's history (an `APPROVED` integration-review row assigned to it → integration-fix; QA failures newer than its last entry → bugfix; otherwise implement) and says which it chose in Engineering Progress
 - **Modes** (Last Action `mode`, the bare word only — an INT-ID goes in Engineering Progress): `implement`, `bugfix`, `integration-fix`
 - **Input**: `production.md` + its own `modules/<dir>/spec.md` + its own `modules/<dir>/status.md` + dependency modules' `status.md` (read-only) + Tech Lead's diagnosis when fixing an AC under an open escalation marker + the assigned `integration-review.md` row for an integration fix
 - **Output**: Working code + self-check results in `modules/<dir>/status.md` Engineering Progress
 - **Self-Check Process**: Step 0 on the project's first module only — infrastructure pre-flight (`.env` presence if `setup.md` requires it, every service `setup.md` lists is reachable; on failure `result: needs-human`). Then `self-check.sh` (build, lint, tests, write-scope check), the project's integration-test command if `production.md` or `setup.md` names one, and the judgment items. The checklist is stack-neutral: universal items always apply; items under "Only if your stack matches" (Jest + real DB teardown, LLM model IDs and prompt budgets, Spring Boot actuator/CORS/`@Order`, container architecture, React Native safe areas) apply only when the module uses that stack, and Engineer says which it skipped
-- **Results** (Last Action `result`): `success`, `blocked-dependency` (a module this one depends on has not passed QA), `blocked-technical` (cross-module design problem or a library not in `production.md`), `needs-human`
-- **Handoff**: `success` → `qa-mod-<name> "verify"` (implement), `"regression"` (bugfix), or `"integration-fix-verify <INT-ID>"` (integration-fix). `blocked-dependency` → finish the dependency first (`pm "change"` if the phase order is wrong). `blocked-technical` → `tech-lead "engineer blocker in mod-<name>"`
+- **Results** (Last Action `result`): `success`, `blocked-dependency` (a module this one depends on has not passed QA), `blocked-technical` (cross-module design problem or a library not in `production.md`), `spec-issue` (the spec itself is the problem — two requirements contradict, an AC cannot be met as written, or something the module needs is missing; the exact issue goes in Engineering Progress and Engineer stops without guessing or building around it), `needs-human`
+- **Handoff**: `success` → `qa-mod-<name> "verify"` (implement), `"regression"` (bugfix), or `"integration-fix-verify <INT-ID>"` (integration-fix); when a bugfix or integration-fix succeeds on a module other modules depend on (their spec's Dependencies names its MOD-ID), the hook puts a coordinator `/pstack:blast-radius` step on the fix's diff first. `blocked-dependency` → finish the dependency first (`pm "change"` if the phase order is wrong). `blocked-technical` → `tech-lead "engineer blocker in mod-<name>"`. `spec-issue` → `pm "change: spec issue from engineer-mod-<name>"`. A scope violation found by the hook overrides all of these with `engineer-mod-<name> "bugfix: undo the changes outside your Source Path listed in the handoff"`
 - **Constraints**:
   - Reads only `production.md` and its assigned spec — no `prd.md`, no other module's spec. Any cross-module mounting condition it needs is already named in its spec's Integration Points
   - Scope = Requirements + Acceptance Criteria. The spec's Context explains *why* and never widens scope; behavior a user story implies but no AC covers is logged as a scope question for PM
   - If blocked by something outside its Source Path, writes the blocker to Engineering Progress and stops — never improvises or works across the boundary
+  - If the spec cannot be built as written, records `spec-issue` and stops — PM fixes it at the source
   - No dependencies outside the `production.md` tech stack
   - Under an open repeat-failure escalation marker, implements per Tech Lead's diagnosis; without the diagnosis in hand, stops and asks the human for it
   - On an integration-review fix, touches only its own row and only moves it to `IN PROGRESS` / `FIXED – AWAITING QA`
-  - Commits before stopping: `git commit -m "engineer-mod-<name>(<implement|bugfix|integration-fix>): <summary>"` — the exact `engineer-<dir>(` prefix is required, since `self-check.sh` uses it to find the module's own commits
+  - Commits before stopping: `git commit -m "engineer-mod-<name>(<implement|bugfix|integration-fix>): <summary>"` — the exact `engineer-<dir>(` prefix is required, since `module_scope.py changed` (run by `self-check.sh` and `handoff.sh`) uses it to find the module's own commits
 
 ### QA
 
@@ -183,13 +186,13 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - No word: QA decides from the module's history and says why in the first line of QA Results. The workflow is recorded as Last Action `mode`, as the bare word (`verify`, `regression`, `integration-fix-verify` — the INT-ID goes in QA Results)
 - **Input**: `production.md` + its own `spec.md` + the code + its own `modules/<dir>/status.md`
 - **Output**: Per-AC pass/fail with reproducible failure descriptions in `modules/<dir>/status.md`
-- **Testing Process**: `run-qa.sh` (which fails when no test command is configured), then the judgment items. Server-side modules need a real running server — real endpoint calls and stored state, not just unit tests. UI modules need the `verify` skill, or a written test script handed to the human for sign-off with `result: needs-signoff` (the human answers with `"ui-results: …"`); QA never declares PASS on an AC nobody exercised in the running UI. Setup drift (`setup.md` ports or variables out of step with `docker-compose.yml` / `.env.example`) is a FAIL routed to Tech Lead, who owns `setup.md`; a variable missing from `.env.example` goes to the project files owner's Engineer
-- **Results** (Last Action `result`): `success`, `bugs-found`, `spec-issue`, `setup-drift` (setup.md out of step with the infrastructure → Tech Lead), `repeat-failure` (with `ac:` in Last Action listing every AC routed to Tech Lead in this run, comma-separated, so the hook checks each AC's escalation marker), `needs-signoff` (stopped for the human to run a UI test script), `needs-human` (blocked on anything else the human must do, e.g. the server will not start). One run records one result; when ACs fail for different reasons the precedence is **`spec-issue` > `setup-drift` > `repeat-failure` > `bugs-found`**, every failure is still listed, and the handoff message names the others
+- **Testing Process**: `run-qa.sh` (which fails when no test command is configured), then the judgment items. Server-side modules need a real running server — real endpoint calls and stored state, not just unit tests. UI modules need the `verify` skill, or a written test script handed to the human for sign-off with `result: needs-signoff` (the human answers with `"ui-results: …"`); QA never declares PASS on an AC nobody exercised in the running UI. Setup drift (`setup.md` ports or variables out of step with `docker-compose.yml` / `.env.example`) is a FAIL routed to Tech Lead, who owns `setup.md`; a variable missing from `.env.example` goes to the project files owner's Engineer. When the module's spec lists Dependencies, QA also runs `integration-review/scripts/scan-integration.sh` after its checks pass and copies any hit involving this module into QA Results under `### Integration notes (for Tech Lead)` — leads, not failures, which Tech Lead's phase-end review reads
+- **Results** (Last Action `result`): `success`, `bugs-found`, `spec-issue`, `setup-drift` (setup.md out of step with the infrastructure → Tech Lead), `repeat-failure` (with `ac:` in Last Action listing every AC routed to Tech Lead in this run, comma-separated, so the hook checks each AC's escalation marker), `needs-signoff` (stopped for the human to run a UI test script), `needs-human` (blocked on anything else the human must do, e.g. the server will not start). One run records one result; when ACs fail for different reasons the precedence is **`spec-issue` > `setup-drift` > `repeat-failure` > `bugs-found`**, every failure is still listed, and the lower-priority results go in Last Action `pending:` (e.g. `bugs-found (AC-012, AC-014)`), which the hook prints as "Still pending from this run: …"; QA keeps listing them in every later run until they are fixed
 - **Handoff**:
   - Pass, more modules remain in the phase → `engineer-mod-<next-module> "implement"`
   - Pass, last module of the phase → coordinator runs `/pstack:thermos` → Tech Lead (integration review). Never straight to PM
   - Bugs (1st/2nd failure of this AC) → Engineer
-  - 3rd failure, or an escalation marker already open → Tech Lead (repeat-failure review); on the first escalation the coordinator runs `/pstack:how` + `/pstack:why` first. After a marker is flipped to resolved, the count starts fresh from that point
+  - 3rd failure, a 2nd failure whose observed output (`Actual=`, error message, or screenshot evidence) is identical to the 1st — the fix changed nothing visible — or an escalation marker already open → Tech Lead (repeat-failure review); on the first escalation the coordinator runs `/pstack:how` + `/pstack:why` first. After a marker is flipped to resolved, the count starts fresh from that point
   - Spec issue → PM
   - Integration fix verified → the human verifies it, then tells Tech Lead `"<INT-ID> verified: <what you checked>"`; fix does not hold → `engineer-mod-<name> "integration-fix <INT-ID>"`
   - Needs human sign-off → the human runs the test script, then `qa-mod-<name> "ui-results: …"`
@@ -252,7 +255,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - Finalization only: `[INIT]` tag, Build Config, Module Map with directory and Source Path for every module (no path claimed twice, none nested inside another) plus a `Project files:` line naming one owner module; Phase Plan and Current Phase left blank for Doc-Sync
 - Change protocol (stays in SKILL.md since it's used every time):
   - **Pre-sync iteration** (before the first Doc-Sync): targeted change, user approval, note in PM Updates which Tech Lead Reviews entry it answers, no `[TRIVIAL]`/`[SUBSTANTIVE]` tags, Last Action `mode: iterate`
-  - **Post-sync update**: re-read full PRD, smallest change, next available IDs, ask the user trivial vs substantive and tag accordingly, increment the revision, re-run the full quality checklist; a new module gets a directory, Source Path, and Module Map row before Doc-Sync runs
+  - **Post-sync update**: re-read full PRD, smallest change, next available IDs, ask the user trivial vs substantive and tag accordingly (plus `[ARCHITECTURAL]` when the user says the change alters how the system is built), increment the revision, re-run the full quality checklist; a new module gets a directory, Source Path, and Module Map row before Doc-Sync runs
 - Quick start: `pstack:sharpen` and a two-or-three-sentence restatement of the goal come first (step 0 of drafting); finalization covers Build Config, the Module Map (directories + non-overlapping Source Paths, shared code owned by exactly one module, one project files owner), and the setup gate (Setup Confirmation present, no newer Setup Changed)
 
 #### templates/prd.tmpl.md
@@ -287,8 +290,8 @@ Every framework agent runs as its own direct session, started by the human: `cla
 #### templates/CLAUDE.tmpl.md
 - Coordinator Instructions: defines the default Claude Code session (not any `.claude/agents/*` agent) as a coordinator with no independent write scope
 - **Run mode**: the human runs every framework agent directly (`claude --agent <name>`); the coordinator never starts them as subagents, and gives the human the exact command and what to tell the agent — every command carries the agent's start word (e.g. `claude --agent engineer-mod-login "bugfix"`), as the hook's messages show
-- Contains the ownership table (which agent owns which artifact and how to invoke it — source code by the module whose Source Path contains it), the hard no-direct-edit rule, the "every PM tag goes through Doc-Sync" rule, and forbidden/correct examples
-- **Required pstack steps**: the trigger table for the coordinator-run pstack steps (`how`, `thermos`, `blast-radius`, `how` + `why`, `create-verification-skill`), findings saved and committed to `project-planning/pstack-findings/` (and the verify skill committed as `pstack(create-verification-skill)`, since uncommitted output shows up in every self-check and handoff warning), a blast-radius report that changes the plan going back through `tech-lead "on-demand review of <INT-ID> blast-radius"`, the "deliver findings, never fix" rule with a `git status` check after each step, and the list of file-changing pstack skills the coordinator never runs on owned artifacts
+- Contains the ownership table (which agent owns which artifact and how to invoke it — source code by the module whose Source Path contains it; a `CLAUDE.md` row: the coordinator edits it only on explicit human instruction, PM's init commits the scaffolded version, project notes go below the Coordinator Instructions section, and that section changes only when the framework template does), the hard no-direct-edit rule, the "every PM tag goes through Doc-Sync" rule, and forbidden/correct examples
+- **Required pstack steps**: the trigger table for the coordinator-run pstack steps (`how` for a PM change tagged `[ARCHITECTURAL]`, `thermos`, `blast-radius` for a bugfix or approved integration fix to a module other modules depend on, `how` + `why`, `create-verification-skill` in the first phase the app runs unless the human declines — a "no" goes to PM's Decisions as "verify skill: declined" — and `maintain-verification-skill` at each PM checkpoint once the verify skill exists), findings saved and committed to `project-planning/pstack-findings/` (and the verify skill committed as `pstack(create-verification-skill)`, since uncommitted output shows up in every self-check and handoff warning), a blast-radius report that changes the plan going back through `tech-lead "on-demand review of <INT-ID> blast-radius"`, the "deliver findings, never fix" rule with a `git status` check after each step, and the list of file-changing pstack skills the coordinator never runs on owned artifacts
 - Scaffolded to `<project-root>/CLAUDE.md` by `init-project.sh` — auto-loaded into every default session opened at that root
 - If a `CLAUDE.md` already exists at project root, `init-project.sh` does not overwrite it — it prints a note telling the human to merge the Coordinator Instructions section manually
 
@@ -456,17 +459,18 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - Runs build → reports pass/fail
   - Runs linter → reports pass/fail
   - Runs existing tests → reports pass/fail. No test command in `production.md` is a **FAIL** (add `Test:` to Build Config via PM; if the project truly has no tests, the human must say so)
-  - Checks the module's write scope through `module_scope.py`. The list of changed files is snapshotted at the start of the script, **before** build and test run, so their output (caches, bytecode, coverage) is never mistaken for the engineer's work. The snapshot covers uncommitted and untracked files plus every file changed by the module's own `engineer-<dir>(…)` commits since the last commit that was not this engineer's (searching the whole history; when the engineer's commits are the whole history, it compares against the empty tree), so committed out-of-scope work is caught too. File names with spaces are kept intact. Skips the check when no Source Path is recorded
+  - Checks the module's write scope by calling `module_scope.py changed <project-root> <module-dir>` — the same check `handoff.sh` runs when the Engineer stops. It runs at the start of the script, **before** build and test, so their output (caches, bytecode, coverage) is never mistaken for the engineer's work; the result is reported in the git-scope section. Passes when every change is in scope, fails listing each out-of-scope file with its reason (including a module with no Module Map row), and skips when the Module Map has no Source Path column or the project is not a git repository
 - Framework-agnostic: reads commands from `production.md` rather than hardcoding `npm` or `pip`
 - Takes module name and project root as arguments
 - Outputs structured report to stdout
 - Exit code 0 = all automated checks pass
 
 #### scripts/module_scope.py
-- The Module Map scope rules, shared by `self-check.sh` and the `pstack-guard.sh` hook so the two never disagree
+- The Module Map scope rules, shared by `self-check.sh` and the `pstack-guard.sh` and `handoff.sh` hooks so they never disagree
 - Parses the `status.md` Module Map table (HTML comments skipped) and the `Project files: <dir> | <paths>` line
 - `module_scope.py check <status.md> <module-dir> <path>`: exit 0 in scope, 1 outside it (reason on stdout — e.g. which module owns the path), 2 the module has no Module Map row, 3 the Module Map has no Source Path column (older project; the caller decides). Paths are normalized first (`./`, `../`), and a `project-planning/modules/*/spec.md` path is blocked (exit 1) even when the Module Map has no Source Path column
 - `module_scope.py paths <status.md> <module-dir>`: prints the module's Source Paths, plus the project files if it owns them
+- `module_scope.py changed <project-root> <module-dir>`: checks every file the module changed — uncommitted and untracked files, plus the files in the module's own `engineer-<dir>(…)` commits since the last commit by anyone else (searching the whole history; when the engineer's commits are the whole history, it compares against the empty tree) — and prints each one outside the scope with the reason. Exit 0 all in scope, 1 not (a missing Module Map row counts), 3 no Source Path column. File names with spaces and renames are handled. Shell writes are caught here, not by the guard
 - Write scope = Source Paths + owned project files + `modules/<dir>/` (except `spec.md`, which is always blocked) + `project-planning/status.md` + `project-planning/integration-review.md`. Ownership goes to the longest matching path, so a nested path still has a single owner
 
 ### qa-checklist
@@ -515,7 +519,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
   5. Focus extra attention on code adjacent to the fix
   6. Append a new `### QA Run N — Regression — <date>` block inside `## QA Results` (never a new `##` section)
 - **Integration-fix variant**: the assigned `integration-review.md` row replaces the QA Results entry — its Description and Location are the failure scenario to reproduce — and on success QA sets the row to `QA VERIFIED` (or back to `APPROVED` with a note)
-- **Repeat-failure check, built into the workflow, before routing a failed fix to Engineer**: an `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC routes to Tech Lead (`result: repeat-failure`, `ac: AC-NNN`) — no re-count after the first escalation; with no marker, the 3rd failure of the AC across QA Results routes to Tech Lead the same way; otherwise back to Engineer (`result: bugs-found`). A verification that passes on an AC with an open marker flips it to resolved.
+- **Repeat-failure check, built into the workflow, before routing a failed fix to Engineer**: an `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC routes to Tech Lead (`result: repeat-failure`, `ac: AC-NNN`) — no re-count after the first escalation; with no marker, the 3rd failure of the AC across QA Results routes to Tech Lead the same way, and so does a 2nd failure whose observed output is identical to the 1st (the fix changed nothing visible); otherwise back to Engineer (`result: bugs-found`). A verification that passes on an AC with an open marker flips it to resolved.
 
 #### scripts/run-qa.sh
 - Automated test runner and report generator:
@@ -557,7 +561,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
   - Automated first-pass scan → run `scripts/scan-integration.sh`
 
 #### workflows/phase-review.md
-- Step-by-step for the first review of a phase: read every module in the phase in full, run `scripts/scan-integration.sh`, apply both reference checklists, create `integration-review.md` from template if missing, carry forward every row still `DEFERRED` from an earlier phase (listed again for the human to decide; its status is left for `record-decisions` to change), log one `PROPOSED` row per finding with Assigned Module left blank (or, only when there is no finding and no carried-forward `DEFERRED` row, a single `NO ISSUES` row, "No issues found — phase <N> reviewed <date>"), write a summary pointer to `status.md` Tech Lead Reviews, record Last Action `mode: integration-review` with `result: clean` only in that no-finding case — any finding or carried-forward row means `result: issues-found` — commit
+- Step-by-step for the first review of a phase: read every module in the phase in full, read every `### Integration notes (for Tech Lead)` block QA wrote in this phase's module status files (treated as leads, like the scan), run `scripts/scan-integration.sh`, apply both reference checklists, create `integration-review.md` from template if missing, carry forward every row still `DEFERRED` from an earlier phase (listed again for the human to decide; its status is left for `record-decisions` to change), log one `PROPOSED` row per finding with Assigned Module left blank (or, only when there is no finding and no carried-forward `DEFERRED` row, a single `NO ISSUES` row, "No issues found — phase <N> reviewed <date>"), write a summary pointer to `status.md` Tech Lead Reviews, record Last Action `mode: integration-review` with `result: clean` only in that no-finding case — any finding or carried-forward row means `result: issues-found` — commit
 - Tells the human that every row — Concerns, Recommendations, and carried-forward `DEFERRED` rows — needs an approve, reject, or defer before PM's checkpoint, given as `claude --agent tech-lead "decisions: INT-001 approve, INT-002 reject, ..."`
 - **Scope split**: conflict/leak checks (`cross-module-checklist.md`) are scoped to the current phase's modules only — new interactions only exist between modules new to each other. The duplication check (`optimization-criteria.md`) is explicitly NOT phase-scoped — it compares lightweight Purpose/Tech Stack summaries across every module shipped so far, deep-reading only modules flagged as suspiciously similar, since duplication has no phase boundary
 
@@ -587,6 +591,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
 
 #### scripts/scan-integration.sh
 - Automated first-pass scan, explicitly a lead list rather than a verdict — every hit still needs Tech Lead's manual judgment
+- Run by Tech Lead at phase end, and also by QA after a module whose spec lists Dependencies passes (hits go under `### Integration notes (for Tech Lead)` in QA Results)
 - Reads module directories and Source Paths from the rows of the `status.md` Module Map table only — HTML comments and the format example are skipped (all modules ever shipped, not phase-filtered — the Module Map has no phase concept of its own)
 - Scans every Source Path in the Module Map (falling back to `src/` when none are recorded), dropping roots nested inside another so no file is counted twice
 - Checks: migration filename/prefix collisions across common migration directory names, Integration Points file references that don't resolve to an actual file, duplicate route/endpoint literals (`.get`/`.post`/`.put`/`.patch`/`.delete`/`.route`) — each route counted across all files, with the files holding every duplicate listed — module Purpose lines printed together for duplication eyeballing, duplicate exported component/function names (JS/TS exports and Python `def`/`class`) across the scanned roots (all heuristic greps, tech-stack agnostic)
@@ -596,7 +601,7 @@ Every framework agent runs as its own direct session, started by the human: `cla
 
 ## Hooks
 
-Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-level) or a project's `.claude/settings.json`. Claude Code does not load a standalone `hooks.json` outside plugins; the repo ships the entries to merge in `.claude/hooks/settings-hooks.json` (which also carries two optional macOS `osascript` notifications on `Notification` and `Stop`). Both scripts need `jq`, must be executable (`chmod +x`), and stay silent outside a dev-team-agent project (one with `project-planning/status.md`).
+Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-level) or a project's `.claude/settings.json`. Claude Code does not load a standalone `hooks.json` outside plugins; the repo ships the entries to merge in `.claude/hooks/settings-hooks.json` (which also carries two optional macOS `osascript` notifications on `Notification` and `Stop`). Both scripts need `jq` and `python3`, must be executable (`chmod +x`), and stay silent outside a dev-team-agent project (one with `project-planning/status.md`).
 
 ### handoff.sh
 
@@ -605,14 +610,17 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 - **Behavior**:
   - Exits immediately when `stop_hook_active` is true (no loops)
   - Finds the project root from subdirectories: resolves `git rev-parse --show-toplevel` from the hook's `cwd`, and outside git (or when that root has no `project-planning/status.md`) walks up the parent directories, so a session that ran `cd src` still finds `project-planning/status.md`
-  - Parses the `## Last Action` block in `status.md` (`agent`, `mode`, `result`, `module`, `ac` for repeat failures — one AC or several, comma-separated — and the optional `next:` field) and, for some messages, `## Current Phase` (its first non-comment line — comments may span several lines), `## Checkpoint History`, and whether an entry inside `## PM Updates` is tagged `[INIT]` (only that section counts — the Setup Confirmation text mentions `[INIT]` too)
-  - **`next:` field**: when Last Action carries `next:` (Tech Lead records it for `change-review` and `on-demand-review`), the hook shows that exact command as is, ahead of its own default for the agent; only the `needs-human` / `needs-signoff` messages take precedence over it
+  - Parses the `## Last Action` block in `status.md` (`agent`, `mode`, `result`, `module`, `ac` for repeat failures — one AC or several, comma-separated — `next:`, and QA's `pending:`) and, for some messages, `## Current Phase` (its first non-comment line — comments may span several lines), `## Decisions` (for "verify skill: declined"), whether an entry inside `## PM Updates` is tagged `[INIT]` (only that section counts — the Setup Confirmation text mentions `[INIT]` too), and whether the latest `[TRIVIAL]`/`[SUBSTANTIVE]` PM Updates entry also carries `[ARCHITECTURAL]`
+  - **Engineer scope check**: whenever an `engineer-*` agent stops, the hook runs `module_scope.py changed` itself (shell writes never pass through `pstack-guard.sh`, and the Engineer's own self-check result is not trusted for this). Any out-of-scope file replaces every other message with "Scope violation — files changed outside <module>'s Source Path: <files> … Fix first: `claude --agent engineer-mod-X "bugfix: undo the changes outside your Source Path listed in the handoff"`" (if the work belongs to another module, the Engineer records `blocked-technical` instead)
+  - **`next:` field**: every agent now records `next:`, and the hook shows that exact command as is, ahead of its own default for the agent; only a scope violation and the `needs-human` / `needs-signoff` messages take precedence over it, and a Tech Lead `setup-changed` result always shows the redo-setup message instead. The per-mode defaults in the table below are the fallback when `next:` is missing
+  - **Blast-radius prefix**: when an Engineer `bugfix` or `integration-fix` succeeds (and no scope violation was found) on a module that other modules depend on — their `spec.md` `## Dependencies` names its MOD-ID from the Module Map — the hook prefixes the next step, whoever wrote it, with "<module> is used by <dependents> — first the coordinator runs `/pstack:blast-radius` on this fix's diff (saved to `project-planning/pstack-findings/`). Then: …", unless the command already mentions blast-radius
+  - **Pending results**: when QA's Last Action has `pending:`, the message ends with "Still pending from this run: <pending> — handle it after the step above (QA Results lists the details)"
   - Writes every command as `claude --agent <name> "<word>"`, so it pastes into any shell, with the start word the agent picks its mode from: Engineer `implement` / `bugfix` / `integration-fix INT-ID`; QA `verify` / `regression` / `integration-fix-verify INT-ID` / `ui-results: …`; PM `iterate` / `finalize` / `change` / `checkpoint`; Tech Lead a short phrase (`"initial PRD review"`, `"Setup is complete"`, `"decisions: …"`, `"repeat-failure review AC-NNN"`, …). Values the human must fill in are UPPERCASE placeholder words without angle brackets (`engineer-NEXT_MODULE`, `INT-ID`, `ASSIGNED_MODULE`, `WHAT YOU CHECKED`), so a pasted command never contains shell redirection characters
   - The `Handoff — <agent> (<mode>, <result>)` header always shows the recorded `mode`; a Tech Lead `setup-changed` result changes the route, not the displayed mode
   - **Shows each Last Action once**: it fingerprints the Last Action block into `.git/handoff-last-shown` (or `project-planning/handoff-last-shown` outside git), so the repeated Stop/SubagentStop firings after every turn stay silent until an agent records a new Last Action
   - Builds a per-agent, per-mode, per-result "Next →" message (table below) and returns it as JSON `{"systemMessage": ...}` — plain stdout from a Stop hook goes to the debug log, not the user
   - Appends a warning listing every uncommitted change in the repo (source code and generated agents included) if the agent did not commit before stopping
-  - Names the coordinator's pstack step in the message where one is required (`how`, `thermos`, `how` + `why`, `blast-radius`), and during phase 1 — while `.claude/skills/verify/SKILL.md` does not exist and no checkpoint is recorded — adds an optional hint to have the coordinator run `/pstack:create-verification-skill`
+  - Names the coordinator's pstack step in the message where one is required (`how`, `thermos`, `how` + `why`, `blast-radius`, `maintain-verification-skill` after a checkpoint when the verify skill exists), and — while `.claude/skills/verify/SKILL.md` does not exist and `## Decisions` does not say "verify skill: declined" — adds an optional hint to the QA-pass message to have the coordinator run `/pstack:create-verification-skill` once the app runs (or to ask PM to record "verify skill: declined")
   - Unknown agents (and Retrospective, which writes no Last Action) produce no message
   - Never auto-invokes the next agent — always waits for the human to run the command
 
@@ -639,22 +647,24 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 - **Read-only reviewers**: any subagent that is not a framework agent (pstack's `general-purpose`, `pstack:effort-*`, `pstack:thermo-*` reviewers) may write in the project only under `project-planning/pstack-findings/` (outside the project, except `~/.claude`, is not blocked). Paths are resolved with `realpath` first, so `../` and symlinks cannot escape
 - **Other framework agents** (PM, Doc-Sync, Tech Lead, QA, Retrospective) keep their prompt-defined write scopes apart from the `~/.claude` and Module Map rules; the hook does not otherwise check their file writes
 - Needs `python3` (for `realpath`, the Module Map comparison, and `module_scope.py`, which it reads from `~/.claude/skills/engineer-checklist/scripts/`)
-- **Not covered**: shell commands and the coordinator's own session — the coordinator's `git status` check after each pstack step covers those
+- **Not covered**: shell commands and the coordinator's own session — an Engineer's shell writes are caught by `handoff.sh`'s `module_scope.py changed` check when it stops, and the coordinator's `git status` check after each pstack step covers its own session
 
 ### Handoff Messages
 
-`handoff.sh` prints `Handoff — <agent> (<mode>, <result>)` followed by `Next → <message>`. The messages below are its actual branches (paraphrased where long):
+`handoff.sh` prints `Handoff — <agent> (<mode>, <result>)` followed by `Next → <message>`, then QA's `Still pending from this run: …` line when `pending:` is set. The messages below are its actual branches (paraphrased where long), in precedence order for the first three rows:
 
 | Just Finished (agent / mode / result) | Hook Suggests (Next →) |
 |---|---|
+| engineer-mod-X, any result, `module_scope.py changed` finds an out-of-scope file | Scope violation — files changed outside mod-X's Source Path: <files and reasons>. Fix first: `claude --agent engineer-mod-X "bugfix: undo the changes outside your Source Path listed in the handoff"` (if the work belongs to another module, it records blocked-technical instead) |
 | any agent, `result: needs-human` | `<agent> is waiting on you` — read its last message (and its `status.md` entry), do what it asks, then run `claude --agent <agent>` and give it your answer |
 | qa-mod-X, `result: needs-signoff` | QA needs your sign-off — run its test script (in QA Results), then: `claude --agent qa-mod-X "ui-results: WHICH ACS PASSED, WHICH FAILED AND HOW"` |
-| any agent whose Last Action has `next:` (Tech Lead `change-review` / `on-demand-review`), result not `needs-human`/`needs-signoff` | the `next:` command exactly as recorded |
+| any agent whose Last Action has `next:` (every agent writes it), result not `needs-human`/`needs-signoff`/`setup-changed` | the `next:` command exactly as recorded. The rows below are the fallback when `next:` is missing |
 | pm / `init` | `claude --agent tech-lead "initial PRD review"` |
 | pm / `iterate` | Review the revised PRD. Architectural changes: `claude --agent tech-lead "pre-sync re-review"`. Otherwise, once you approve: `claude --agent pm "finalize"` |
 | pm / `finalize` | `claude --agent doc-sync` — initial sync |
-| pm / `change` | Architectural impact: have the coordinator run `/pstack:how` on the affected code (saved to `project-planning/pstack-findings/`), then `claude --agent tech-lead "change review"`. Otherwise: `claude --agent doc-sync` |
-| pm / `checkpoint` / `success` | `Now in <Current Phase>. Next: claude --agent engineer-FIRST_MODULE_OF_PHASE "implement"` (see Phase Plan) |
+| pm / `change`, latest PM Updates entry tagged `[ARCHITECTURAL]` | [ARCHITECTURAL] change — the coordinator runs `/pstack:how` on the affected code (saved to `project-planning/pstack-findings/`), then `claude --agent tech-lead "change review"` |
+| pm / `change`, not `[ARCHITECTURAL]` | `claude --agent doc-sync` |
+| pm / `checkpoint` / `success` | `Now in <Current Phase>. Next: claude --agent engineer-FIRST_MODULE_OF_PHASE "implement"` (see Phase Plan); when `.claude/skills/verify/SKILL.md` exists, first "the coordinator refreshes the verify skill with `/pstack:maintain-verification-skill` (with your OK), then …" |
 | pm / `checkpoint` / `project-complete` | Project complete — README.md written. Optional: `claude --agent retrospective` |
 | pm / `checkpoint` / any other result | The checkpoint did not complete (`<result>`) — read PM's last message for what is still open |
 | tech-lead / any mode / `setup-changed` | Setup changed (see Setup Changed in Tech Lead Reviews). Redo the listed `setup.md` steps, then: `claude --agent tech-lead "Setup is complete"` |
@@ -675,9 +685,11 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 | engineer-mod-X / `implement` / `success` | `claude --agent qa-mod-X "verify"` |
 | engineer-mod-X / `bugfix` / `success` | `claude --agent qa-mod-X "regression"` |
 | engineer-mod-X / `integration-fix` / `success` | `claude --agent qa-mod-X "integration-fix-verify INT-ID"` (the ID from integration-review.md) |
+| engineer-mod-X / `bugfix` or `integration-fix` / `success`, other modules depend on mod-X | the message above (or the recorded `next:`), prefixed with: mod-X is used by <dependents> — first the coordinator runs `/pstack:blast-radius` on this fix's diff (saved to `project-planning/pstack-findings/`). Then: … |
+| engineer-mod-X / `spec-issue` | `claude --agent pm "change: spec issue from engineer-mod-X"` — the Engineer found a requirement it cannot build as written (see Engineering Progress) |
 | engineer-mod-X / `blocked-dependency` | A module this one depends on has not passed QA yet — finish it first (see Phase Plan). If the phase order is wrong: `claude --agent pm "change"` |
 | engineer-mod-X / `blocked-technical` | `claude --agent tech-lead "engineer blocker in mod-X"` — cross-module or tech-stack blocker in Engineering Progress |
-| qa-mod-X / `verify` or `regression` / `success` | Next module in the Phase Plan: `claude --agent engineer-NEXT_MODULE "implement"`. If this was the last module of the phase: the coordinator runs `/pstack:thermos` on the phase's changes (saved to `project-planning/pstack-findings/`), then `claude --agent tech-lead "phase-end integration review"` [+ the phase-1 verify-skill hint] |
+| qa-mod-X / `verify` or `regression` / `success` | Next module in the Phase Plan: `claude --agent engineer-NEXT_MODULE "implement"`. If this was the last module of the phase: the coordinator runs `/pstack:thermos` on the phase's changes (saved to `project-planning/pstack-findings/`), then `claude --agent tech-lead "phase-end integration review"` [+ the verify-skill hint, until the skill exists or Decisions says "verify skill: declined"] |
 | qa-mod-X / `bugs-found` (not `integration-fix-verify`) | `claude --agent engineer-mod-X "bugfix"` — failures are in QA Results |
 | qa-mod-X / `spec-issue` (any mode) | `claude --agent pm "change: spec issue from qa-mod-X"` — PRD update needed |
 | qa-mod-X / `setup-drift` (any mode) | `claude --agent tech-lead "on-demand review: setup drift found by qa-mod-X"` |
@@ -705,7 +717,7 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 | `.env` | ❌ No access | ❌ No access | Existence + gitignore check only | Presence check only | Presence check only | ❌ No access |
 | `modules/*/spec.md` | ❌ No access | ✅ Write | 🔒 Read | 🔒 Read (assigned only) | 🔒 Read (assigned only) | 🔒 Read |
 | `project-planning/integration-review.md` | 🔒 Read (checkpoint gate only) | ❌ No access | ✅ Write (create; PROPOSED / NO ISSUES / SPLIT / CONFIRMED CLOSED; records the human's APPROVED / REJECTED / DEFERRED + Assigned Module and HUMAN VERIFIED) | ✅ Write (IN PROGRESS / FIXED – AWAITING QA, assigned rows only) | ✅ Write (QA VERIFIED or back to APPROVED, assigned rows only) | ❌ No access |
-| Source code | ❌ No access | ❌ No access | 🔒 Read (reviews) | ✅ Write (own Source Path only — `module_scope.py`, enforced by `self-check.sh` + `pstack-guard.sh`) | 🔒 Read | ❌ No access |
+| Source code | ❌ No access | ❌ No access | 🔒 Read (reviews) | ✅ Write (own Source Path only — `module_scope.py`, enforced by `pstack-guard.sh`, `self-check.sh`, and `handoff.sh` on every Engineer stop) | 🔒 Read | ❌ No access |
 | `README.md` (final) | ✅ Write (final checkpoint) | ❌ No access | ❌ No access | ❌ No access | ❌ No access | ❌ No access |
 | `.claude/skills/*` (`~/.claude` writes blocked for every agent by `pstack-guard.sh`) | ❌ No access | ❌ No access | ❌ No access | ❌ No access | ❌ No access | 🔒 Read |
 | `.claude/agents/*` | ❌ No access | ✅ Write (`engineer-<dir>.md` + `qa-<dir>.md` only) | ❌ No access | ❌ No access | ❌ No access | 🔒 Read |
@@ -764,7 +776,7 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 │   │   │   └── llm-prompt-context-budget.md       # Token budget for prompts built from user text
 │   │   └── scripts/
 │   │       ├── self-check.sh                      # Automated pre-QA checks (incl. write-scope check)
-│   │       └── module_scope.py                    # Module Map scope rules shared by self-check.sh + pstack-guard.sh
+│   │       └── module_scope.py                    # Module Map scope rules shared by self-check.sh, pstack-guard.sh + handoff.sh
 │   ├── qa-checklist/
 │   │   ├── SKILL.md                               # Checklist + routing
 │   │   ├── workflows/
@@ -799,8 +811,9 @@ CLAUDE.md                                           # Created by init-project.sh
 ├── agents/
 │   ├── engineer-mod-<name>.md                      # Generated by Doc-Sync — never hand-edit; open a new terminal to load
 │   └── qa-mod-<name>.md
-└── skills/verify/                                  # Optional — coordinator creates it in phase 1 with
-                                                     # /pstack:create-verification-skill, only if the human says yes
+└── skills/verify/                                  # Optional — coordinator creates it once the app runs with
+                                                     # /pstack:create-verification-skill, only if the human says yes;
+                                                     # refreshed at each checkpoint with /pstack:maintain-verification-skill
 
 project-planning/                                   # Created by PM via init-project.sh
 ├── prd.md                                          # Single source of truth — only PM writes
@@ -836,11 +849,13 @@ The human runs every framework agent directly (`claude --agent <name>`); agents 
 
 | Handoff point | pstack step | Then |
 |---|---|---|
-| PM change with architectural impact | `how` on the affected code | `tech-lead` change review |
+| PM change tagged `[ARCHITECTURAL]` | `how` on the affected code | `tech-lead` change review |
 | QA pass, last module of the phase | `thermos` (diff from the last checkpoint commit, phase 1: `doc-sync(initial)`, limited to the phase's Source Paths) | `tech-lead` integration review |
-| Approved integration fix changing code another module depends on | `blast-radius` (probe scripts outside the project, no arena) | risks change the plan: `tech-lead "on-demand review of <INT-ID> blast-radius"`; otherwise `engineer-mod-<name> "integration-fix <INT-ID>"` |
+| An Engineer bugfix or integration fix succeeded on a module other modules depend on (the hook names them) | `blast-radius` on that fix's diff (probe scripts outside the project, no arena) | risks: `tech-lead` on-demand review; otherwise the QA command the hook printed |
+| An approved integration-review row noted "blast-radius first" (before the fix) | `blast-radius` on the planned fix | `tech-lead` if the plan changes, otherwise `engineer-<module> "integration-fix <INT-ID>"` |
 | QA repeat-failure, first escalation of that AC | `how` + `why` | `tech-lead` repeat-failure review |
-| Phase 1, app runs, human approves | `create-verification-skill` (the coordinator commits `.claude/skills/verify/` as `pstack(create-verification-skill)`) | QA uses `verify` from then on |
+| The first phase in which the app runs, no verify skill yet, human approves (a "no" goes to PM's Decisions as "verify skill: declined") | `create-verification-skill` (the coordinator commits `.claude/skills/verify/` as `pstack(create-verification-skill)`) | QA uses `verify` from then on |
+| Each PM checkpoint, verify skill exists, with the human's OK | `maintain-verification-skill` | the next phase's first Engineer |
 
 PM runs `pstack:sharpen` itself at the start of init. Findings are delivered, never applied: Tech Lead checks each one against the code and records which it accepted or rejected, the human decides, and the owner changes the file.
 
@@ -967,18 +982,20 @@ PM [checkpoint]
    (hook: 'The checkpoint did not complete — read PM's last message for what is still open')
  ↓ reads all modules/*/status.md, presents results, gets explicit approval
  ↓ writes "Phase <N> approved — <date> — commit: <hash>" to Checkpoint History, advances Current Phase
- ↓ final phase: writes README.md (confirmed with the user), result: project-complete
- ↓ commits: git commit -m "pm(checkpoint): phase <N> approved"
- ├── more phases → [hook: 'Now in <phase>. Next: claude --agent engineer-FIRST_MODULE_OF_PHASE "implement"']
+ ↓ final phase: every DEFERRED row is approved (back to Tech Lead, blocks the checkpoint until closed), rejected,
+   or accepted as a known issue (README "Known issues"); writes README.md (confirmed with the user), result: project-complete
+ ↓ commits: git commit -m "pm(checkpoint): phase <N> approved", then git tag checkpoint-<N>
+ ├── more phases → [hook: 'Now in <phase>. Next: claude --agent engineer-FIRST_MODULE_OF_PHASE "implement"'
+ │                  — preceded by the coordinator's /pstack:maintain-verification-skill when the verify skill exists]
  └── project-complete → [hook: "Project complete — README.md written. Optional: claude --agent retrospective"]
 ```
 
-Optional, phase 1 only: while `.claude/skills/verify/` does not exist, the hook's QA-pass message suggests the coordinator run `/pstack:create-verification-skill` once the app runs — only with the human's yes. QA uses `verify` from then on.
+Optional: while `.claude/skills/verify/` does not exist and `## Decisions` does not record "verify skill: declined", the hook's QA-pass message suggests the coordinator run `/pstack:create-verification-skill` once the app runs — only with the human's yes (a "no" is recorded by PM in Decisions, which silences the hint). QA uses `verify` from then on, and the coordinator refreshes it with `/pstack:maintain-verification-skill` at each checkpoint, with the human's OK.
 
 ### Standard Change Flow (post-sync — Doc-Sync has run at least once)
 
 ```
-User requests change  OR  Engineer/QA escalates an issue  OR  Doc-Sync left needs-pm questions
+User requests change  OR  Engineer/QA escalates an issue (spec-issue → 'pm "change: spec issue from <agent>"')  OR  Doc-Sync left needs-pm questions
  [HUMAN RUNS: claude --agent pm]
 PM [change]
  ↓ re-reads prd.md; reads the escalation in modules/<mod>/status.md or the questions in Sync Reports
@@ -987,18 +1004,20 @@ PM [change]
  ↓ asks user: trivial or substantive? Tags PM Updates [TRIVIAL] / [SUBSTANTIVE]
    (answers to Doc-Sync questions are always [SUBSTANTIVE] and list each marker they resolve;
     an approved Tech Lead convention becomes the next CONV-NNN in section 9 Adopted Conventions)
+ ↓ asks user: architectural (data model, module boundaries, integrations, tech stack)? Yes → adds [ARCHITECTURAL]
  ↓ new module: directory + Source Path + Module Map row (+ Current Phase line if it joins the current phase)
  ↓ code moving to another module's Source Path: its ACs move to the new owner too; increments the PRD revision
  ↓ commits: git commit -m "pm(change): <summary>"
- [Stop → hook: 'Architectural impact: the coordinator runs /pstack:how ..., then claude --agent tech-lead "change review". Otherwise: claude --agent doc-sync']
- ├── Architectural impact:
+ [Stop → hook: PM's next: — fallback: '[ARCHITECTURAL] change — the coordinator runs /pstack:how ..., then claude --agent tech-lead "change review"', or 'claude --agent doc-sync' when not tagged]
+ ├── [ARCHITECTURAL]:
  │    Coordinator runs /pstack:how on the affected code → pstack-findings/<date>-how-<topic>.md, commits
  │    [HUMAN RUNS: claude --agent tech-lead "change review"]
  │    Tech Lead [change-review]  (repeats the overlapping-modules scan if a module was added; records next:)
  │     [hook: the recorded next: command — or, without one, 'Accept as-is: claude --agent doc-sync. PRD needs revising: claude --agent pm "change"']
  └── Otherwise → [HUMAN RUNS: claude --agent doc-sync]
 Doc-Sync
- ↓ [TRIVIAL]: passthrough — propagate wording (or re-copy Build Config), brief sync note, skip verify-sync.sh
+ ↓ [TRIVIAL]: passthrough — every pending [TRIVIAL] entry in one run, oldest first: propagate wording
+   (or re-copy Build Config), brief sync note, skip verify-sync.sh
  ↓ [SUBSTANTIVE]: delta-sync of every PM Updates entry since the last Sync Report (a [TRIVIAL] Build Config
    changed entry in that window still re-copies Build Config); new modules (and modules skipped earlier with a
    [BLOCKER] PM has fixed) get spec + status.md + wrappers; modules whose Source Path or dependencies changed
@@ -1049,14 +1068,17 @@ QA finds bugs (1st failure on this AC) — result: bugs-found
 Engineer [bugfix] (attempt 1)
  ↓ states the observed layer + evidence, writes a one-line impact note, fixes, re-runs self-check.sh
  ↓ commits: git commit -m "engineer-mod-<name>(bugfix): <summary>"
- [Stop → hook: 'claude --agent qa-mod-<name> "regression"']
+ [Stop → hook re-runs the scope check (a violation → 'Fix first: ... "bugfix: undo the changes outside your Source Path ..."');
+   otherwise 'claude --agent qa-mod-<name> "regression"', prefixed with the coordinator's /pstack:blast-radius
+   on the fix's diff when other modules depend on this one]
  [HUMAN RUNS: claude --agent qa-mod-<name> "regression"]
 QA [regression]
  ↓ follows regression-test workflow, appends a ### QA Run N — Regression block
  ↓ commits
  ├─ PASS → done
- ├─ FAIL (2nd failure) → same loop back to Engineer (attempt 2)
- └─ FAIL (3rd failure, or an escalation marker is already open) — result: repeat-failure,
+ ├─ FAIL (2nd failure, observed output differs from the 1st) → same loop back to Engineer (attempt 2)
+ └─ FAIL (3rd failure; a 2nd failure with output identical to the 1st; or an escalation marker is already open)
+    — result: repeat-failure,
     ac: <every AC routed to Tech Lead in this run, comma-separated>
       QA does NOT route back to Engineer again; the hook checks each listed AC's marker
       ├── ACs with no open marker (first escalation):
@@ -1081,7 +1103,7 @@ QA [regression]
    (once a marker is resolved, a later failure of that AC starts a fresh count)
 ```
 
-When one run has failures of different kinds, QA records a single result by precedence — `spec-issue` > `setup-drift` > `repeat-failure` > `bugs-found` — lists every failure, and names the others in its handoff so the human can route them after the first is resolved.
+When one run has failures of different kinds, QA records a single result by precedence — `spec-issue` > `setup-drift` > `repeat-failure` > `bugs-found` — lists every failure, and records the others in Last Action `pending:`; the hook adds "Still pending from this run: …" so the human can route them after the first is resolved.
 
 ### Retrospective (manual only, after phase or project completion)
 
@@ -1154,9 +1176,10 @@ The coordination hub for project-wide state. Every agent except Retrospective wr
 agent: [pm|doc-sync|tech-lead|engineer-mod-<name>|qa-mod-<name>]
 mode: [pm: init|iterate|finalize|change|checkpoint — doc-sync: initial|delta|trivial — tech-lead: init-review|pre-sync-review|setup-confirmation|change-review|on-demand-review|integration-review|record-decisions|confirm-fix|repeat-failure-review — engineer: implement|bugfix|integration-fix — qa: verify|regression|integration-fix-verify]
 module: [module directory name or "n/a"]
-result: [success|needs-human — plus pm: project-complete — doc-sync: needs-pm — tech-lead: setup-changed|clean|issues-found — engineer: blocked-dependency|blocked-technical — qa: bugs-found|setup-drift|spec-issue|repeat-failure|needs-signoff]
+result: [success|needs-human — plus pm: project-complete — doc-sync: needs-pm — tech-lead: setup-changed|clean|issues-found — engineer: blocked-dependency|blocked-technical|spec-issue — qa: bugs-found|setup-drift|spec-issue|repeat-failure|needs-signoff]
 ac: [only for qa repeat-failure (every AC routed to Tech Lead in the run, comma-separated) and tech-lead repeat-failure-review (the AC-ID) — the hook checks each AC's escalation marker]
-next: [optional — tech-lead change-review / on-demand-review: the exact next command, which the hook shows as is]
+pending: [qa only — the other results this run also produced, below the one in result: (e.g. "bugs-found (AC-012, AC-014)"); the hook reminds the human]
+next: [always — the exact next command(s) with the agent's start word, including any coordinator pstack step; the hook shows it as is]
 timestamp: [ISO 8601]
 
 ## Current Phase
@@ -1176,7 +1199,7 @@ Lint:  [lint command]
 Test:  [test command]
 
 ## PM Updates
-[Change summaries: what changed in PRD, when, why. Pre-sync revisions cite the Tech Lead Reviews entry they answer (untagged). Finalization tagged [INIT]. Subsequent changes tagged [TRIVIAL] or [SUBSTANTIVE]; answers to Doc-Sync questions list each marker they resolve]
+[Change summaries: what changed in PRD, when, why. Pre-sync revisions cite the Tech Lead Reviews entry they answer (untagged). Finalization tagged [INIT]. Subsequent changes tagged [TRIVIAL] or [SUBSTANTIVE], plus [ARCHITECTURAL] when the user says the change alters how the system is built; answers to Doc-Sync questions list each marker they resolve]
 
 ## Tech Lead Reviews
 [Tech Lead's own entries: ### Review, ### Setup Confirmation, ### Setup Changed, ### Integration & Optimization Review — Phase <N>, ### Repeat-Failure Review — <AC-ID>; Proposed Conventions; pstack input lines]
@@ -1185,7 +1208,7 @@ Test:  [test command]
 [Doc-Sync output: what was synced, files created/modified, [AMBIGUITY]/[CONFLICT]/[BLOCKER] markers, verify-sync.sh result]
 
 ## Decisions
-[Owned by PM. Audit trail for user decisions that are not PRD content (e.g. "defer offline mode to v2"), resolved disagreements, and key choices. Each entry: what was decided, who decided (human/PM/Tech Lead), the rationale, and which IDs are affected]
+[Owned by PM. Audit trail for user decisions that are not PRD content (e.g. "defer offline mode to v2", or "verify skill: declined", which silences the hook's verify-skill hint), resolved disagreements, and key choices. Each entry: what was decided, who decided (human/PM/Tech Lead), the rationale, and which IDs are affected]
 
 ## Module Map
 <!-- Filled by PM at finalize, after the user confirms directory names and source paths.
@@ -1203,7 +1226,7 @@ Test:  [test command]
 Project files: mod-login | package.json, package-lock.json, .env.example, .github/
 
 ## Checkpoint History
-[Phase completion confirmations from user, with git commit hash for each checkpoint]
+[Phase completion confirmations from user, with git commit hash for each checkpoint (the commit is also tagged checkpoint-<N>)]
 
 ## Skill Recommendations
 <!-- PM, Doc-Sync, Tech Lead, Engineer, and QA may append an entry here when they notice a recurring pattern, useful convention,
@@ -1217,7 +1240,7 @@ Project files: mod-login | package.json, package-lock.json, .env.example, .githu
 
 ### Module-Level: `project-planning/modules/mod-xxx/status.md`
 
-One file per module. Created by Doc-Sync during initial sync (and when a new module is added). Engineer writes Engineering Progress; QA writes QA Results (each regression run as a `### QA Run N — Regression — <date>` block inside `## QA Results`). Tech Lead may add only the `AC-<ID>: ESCALATED TO TECH LEAD — open` line, which QA flips to `— resolved <date>`. PM reads these files in change and checkpoint mode.
+One file per module. Created by Doc-Sync during initial sync (and when a new module is added). Engineer writes Engineering Progress; QA writes QA Results (each regression run as a `### QA Run N — Regression — <date>` block inside `## QA Results`, and, for a module with Dependencies, a `### Integration notes (for Tech Lead)` block of scan hits that the phase-end review reads). Tech Lead may add only the `AC-<ID>: ESCALATED TO TECH LEAD — open` line, which QA flips to `— resolved <date>`. PM reads these files in change and checkpoint mode.
 
 ```markdown
 # mod-xxx Status
@@ -1263,7 +1286,7 @@ Complete list of files to create, in order:
 | 18 | `.claude/skills/engineer-checklist/SKILL.md` | Checklist items + process |
 | 19 | `.claude/skills/engineer-checklist/references/llm-prompt-context-budget.md` | Token budget for prompts built from user text |
 | 20 | `.claude/skills/engineer-checklist/scripts/self-check.sh` | Automated pre-QA checks (incl. write-scope check) |
-| 21 | `.claude/skills/engineer-checklist/scripts/module_scope.py` | Module Map scope rules shared by `self-check.sh` and `pstack-guard.sh` |
+| 21 | `.claude/skills/engineer-checklist/scripts/module_scope.py` | Module Map scope rules shared by `self-check.sh`, `pstack-guard.sh`, and `handoff.sh` (incl. the `changed` scope check) |
 | 22 | `.claude/skills/qa-checklist/SKILL.md` | Checklist + routing |
 | 23 | `.claude/skills/qa-checklist/workflows/functional-test.md` | First-time verification procedure |
 | 24 | `.claude/skills/qa-checklist/workflows/regression-test.md` | Re-verification after a bug fix or integration fix (incl. repeat-failure check) |
@@ -1361,9 +1384,9 @@ These rules prevent gaps between what skills teach and what agents enforce. Appl
 
 ### Generating Hooks
 - Use the `create-hooks` skill for both hooks
-- `handoff.sh`: register on `Stop` (primary — every framework agent runs as a direct `claude --agent` session) and `SubagentStop`. It resolves the project root from subdirectories (with or without git), reads `status.md` Last Action (including `ac:`), shows each new Last Action once (fingerprint in `.git/handoff-last-shown`), and prints the per-mode suggestion from the Handoff Messages table
+- `handoff.sh`: register on `Stop` (primary — every framework agent runs as a direct `claude --agent` session) and `SubagentStop`. It resolves the project root from subdirectories (with or without git), reads `status.md` Last Action (including `ac:`, `next:`, and `pending:`), shows each new Last Action once (fingerprint in `.git/handoff-last-shown`), runs `module_scope.py changed` after every Engineer stop, and prints the recorded `next:` or the per-mode suggestion from the Handoff Messages table
 - `pstack-guard.sh`: register on `PreToolUse` with matcher `Skill|Edit|Write|MultiEdit|NotebookEdit`; exit 2 with a reason on stderr to block. It reads the scope rules from `~/.claude/skills/engineer-checklist/scripts/module_scope.py`, so skills must be installed
-- Both need `jq` (`pstack-guard.sh` also `python3`); make executable with `chmod +x`
+- Both need `jq` and `python3` (`handoff.sh` uses it for the scope check and the dependents lookup); make executable with `chmod +x`
 - Register under `"hooks"` in `.claude/settings.json` (project) or `~/.claude/settings.json` (account-level) — never a standalone `hooks.json`, which Claude Code does not load outside plugins
 - Show the user its message as JSON `systemMessage`; plain stdout from a Stop hook only reaches the debug log
 
@@ -1379,10 +1402,10 @@ These rules prevent gaps between what skills teach and what agents enforce. Appl
 - Every agent commits its work before it stops — each handoff is a clean rollback point. Last Action has no commit hash: `git log` gives the real one (recording a hash and then amending would record a commit that no longer exists).
 - Commit message format: `<agent-name>(<mode-or-module>): <one-line summary>`
   - Examples: `pm(init): draft PRD for payment service`, `doc-sync(delta): synced MOD-004 addition`, `tech-lead(integration-review): phase 2 — 1 concern, 2 recommendations`, `engineer-mod-orders(implement): implement order processing`, `qa-mod-orders: pass — all 12 acceptance criteria verified`, `pstack(thermos): phase 1` (coordinator, findings only), `pstack(create-verification-skill): verify skill`
-  - Engineers must use the exact `engineer-<dir>(<implement|bugfix|integration-fix>):` prefix — `self-check.sh` walks back through the commits with that prefix to scope-check committed work
+  - Engineers must use the exact `engineer-<dir>(<implement|bugfix|integration-fix>):` prefix — `module_scope.py changed` (run by `self-check.sh` and by `handoff.sh` on every Engineer stop) walks back through the commits with that prefix to scope-check committed work
 - Agents commit only files within their write scope — never stage files outside their access boundary
 - `handoff.sh` warns about any uncommitted change in the repo when it shows a handoff
-- Checkpoint History entries in `status.md` record the git commit hash alongside phase completion notes, providing named rollback points for major milestones
+- Checkpoint History entries in `status.md` record the git commit hash alongside phase completion notes, and PM tags each checkpoint commit `checkpoint-<N>` (the human pushes tags with `git push --tags`), providing named rollback points for major milestones
 - To roll back to a previous handoff: `git log --oneline` to find the handoff commit, then `git revert <hash>` or `git reset --hard <hash>` depending on whether the rollback itself should be tracked
 
 ### Order of Creation

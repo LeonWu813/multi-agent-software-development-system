@@ -54,13 +54,66 @@ AC=$(echo "$LAST_ACTION" | grep -m1 "^ac:" | sed 's/ac:[[:space:]]*//; s/,/ /g')
 # An agent may name the exact next command itself (Tech Lead reviews do), which wins over the defaults below
 NEXT_FIELD=$(echo "$LAST_ACTION" | grep -m1 "^next:" | sed 's/next:[[:space:]]*//')
 
-# Offer the verify skill only during phase 1 (no checkpoint recorded yet) and only while it doesn't exist
-CHECKPOINTS=$(awk '/^## Checkpoint History/{found=1; next} found && /^## /{exit} found && /approved/' "$STATUS_FILE")
+PENDING=$(echo "$LAST_ACTION" | grep -m1 "^pending:" | sed 's/pending:[[:space:]]*//')
+SCOPE_PY="$HOME/.claude/skills/engineer-checklist/scripts/module_scope.py"
+
+# Offer the verify skill until it exists, unless the human declined it (PM records that in Decisions)
 VERIFY_HINT=""
-[ ! -f "$CWD/.claude/skills/verify/SKILL.md" ] && [ -z "$CHECKPOINTS" ] && VERIFY_HINT=" Optional, phase 1 only: once the app runs, have the coordinator run /pstack:create-verification-skill (with your OK)."
+if [ ! -f "$CWD/.claude/skills/verify/SKILL.md" ] && ! awk '/^## Decisions/{f=1; next} f && /^## /{exit} f' "$STATUS_FILE" | grep -qi 'verify skill: declined'; then
+    VERIFY_HINT=" Optional: once the app runs, have the coordinator run /pstack:create-verification-skill (with your OK; if you don't want one, ask PM to record \"verify skill: declined\" in Decisions)."
+fi
+
+# Latest PM Updates entry: is it marked [ARCHITECTURAL]?
+# The latest entry runs from the last line that starts a bullet or ### heading to the end of the section
+LAST_ENTRY=$(awk '/^## PM Updates/{f=1; next} f && /^## /{exit} f && /^(- |### )/{e=""} f{e=e $0 "\n"} END{printf "%s", e}' "$STATUS_FILE")
+ARCHITECTURAL=0
+echo "$LAST_ENTRY" | grep -q '\[ARCHITECTURAL\]' && ARCHITECTURAL=1
+
+# Modules that depend on the given module directory (their spec's Dependencies names its MOD-ID)
+dependents_of() {
+    python3 - "$CWD" "$1" <<'PY' 2>/dev/null
+import os, re, sys
+root, mod = sys.argv[1], sys.argv[2]
+status = open(os.path.join(root, "project-planning", "status.md"), encoding="utf-8").read()
+m = re.search(r"^## Module Map\s*\n(.*?)(?=^## |\Z)", status, re.S | re.M)
+ids = {}
+for line in (m.group(1) if m else "").splitlines():
+    cols = [c.strip().replace("`", "") for c in line.strip().strip("|").split("|")]
+    if len(cols) >= 2 and re.match(r"MOD-\w+", cols[0]):
+        ids[re.sub(r"^(project-planning/)?modules/", "", cols[1]).rstrip("/")] = cols[0]
+mid = ids.get(mod)
+if not mid:
+    sys.exit()
+out = []
+for d in ids:
+    if d == mod:
+        continue
+    try:
+        spec = open(os.path.join(root, "project-planning", "modules", d, "spec.md"), encoding="utf-8").read()
+    except OSError:
+        continue
+    dep = re.search(r"^## Dependencies\s*\n(.*?)(?=^## |\Z)", spec, re.S | re.M)
+    if dep and re.search(re.escape(mid) + r"\b", dep.group(1)):
+        out.append(d)
+print(", ".join(out))
+PY
+}
 
 # Every command below is written as `claude --agent <name> "<what to say>"`, so it pastes into any shell.
-case "$RESULT" in
+# The hook runs the Engineer's scope check itself: shell writes never pass through the guard,
+# and the Engineer's own self-check result is not trusted for this.
+case "$AGENT" in
+    engineer-*)
+        SCOPE_OUT=$(python3 "$SCOPE_PY" changed "$CWD" "${AGENT#engineer-}" 2>/dev/null)
+        if [ $? -eq 1 ]; then
+            SCOPE_VIOLATION=1
+            NEXT="Scope violation — files changed outside ${AGENT#engineer-}'s Source Path:
+$SCOPE_OUT
+Fix first: \`claude --agent $AGENT \"bugfix: undo the changes outside your Source Path listed in the handoff\"\` (if the work belongs to another module, it records blocked-technical instead)"
+        fi ;;
+esac
+
+[ -n "$NEXT" ] || case "$RESULT" in
     needs-human)   NEXT="$AGENT is waiting on you — read its last message (and its status.md entry), do what it asks, then run \`claude --agent $AGENT\` and give it your answer" ;;
     needs-signoff) NEXT="QA needs your sign-off — run its test script (in QA Results), then: \`claude --agent $AGENT \"ui-results: WHICH ACS PASSED, WHICH FAILED AND HOW\"\`" ;;
 esac
@@ -73,7 +126,12 @@ esac
             init)       NEXT="\`claude --agent tech-lead \"initial PRD review\"\`" ;;
             iterate)    NEXT="Review the revised PRD. Architectural changes: \`claude --agent tech-lead \"pre-sync re-review\"\`. Otherwise, once you approve: \`claude --agent pm \"finalize\"\`" ;;
             finalize)   NEXT="\`claude --agent doc-sync\` — initial sync" ;;
-            change)     NEXT="Architectural impact: have the coordinator run /pstack:how on the affected code (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"change review\"\`. Otherwise: \`claude --agent doc-sync\`" ;;
+            change)
+                if [ "$ARCHITECTURAL" = "1" ]; then
+                    NEXT="[ARCHITECTURAL] change — the coordinator runs /pstack:how on the affected code (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"change review\"\`"
+                else
+                    NEXT="\`claude --agent doc-sync\`"
+                fi ;;
             checkpoint)
                 if [ "$RESULT" = "project-complete" ]; then
                     NEXT="Project complete — README.md written. Optional: \`claude --agent retrospective\`"
@@ -124,6 +182,7 @@ esac
                     integration-fix*) NEXT="\`claude --agent qa-$SLUG \"integration-fix-verify INT-ID\"\` (the ID from integration-review.md)" ;;
                     *)                NEXT="\`claude --agent qa-$SLUG \"verify\"\`" ;;
                 esac ;;
+            spec-issue)         NEXT="\`claude --agent pm \"change: spec issue from $AGENT\"\` — the Engineer found a requirement it cannot build as written (see Engineering Progress)" ;;
             blocked-dependency) NEXT="A module this one depends on has not passed QA yet — finish that module first (see Phase Plan). If the phase order itself is wrong: \`claude --agent pm \"change\"\`" ;;
             blocked-technical)  NEXT="\`claude --agent tech-lead \"engineer blocker in $SLUG\"\` — cross-module or tech-stack blocker in Engineering Progress" ;;
             *)                  NEXT="Check Engineering Progress in project-planning/modules/${MODULE:-$SLUG}/status.md" ;;
@@ -135,7 +194,7 @@ esac
                 if [ "${MODE%% *}" = "integration-fix-verify" ]; then
                     NEXT="Verify the fix yourself, then: \`claude --agent tech-lead \"INT-ID verified: WHAT YOU CHECKED\"\`"
                 else
-                    NEXT="Next module in the Phase Plan: \`claude --agent engineer-NEXT_MODULE \"implement\"\`. If this was the last module of the phase: the coordinator runs /pstack:thermos on the phase's changes (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"phase-end integration review\"\`.$VERIFY_HINT"
+                    NEXT="Next module in the Phase Plan: \`claude --agent engineer-NEXT_MODULE \"implement\"\`. If this was the last module of the phase: the coordinator runs /pstack:thermos on the phase's changes (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"phase-end integration review\"\`."
                 fi ;;
             bugs-found)
                 if [ "${MODE%% *}" = "integration-fix-verify" ]; then
@@ -165,8 +224,29 @@ esac
         exit 0 ;;
 esac
 
+# A fix to a module other modules depend on gets a blast-radius step first, whoever wrote the next command
+case "$AGENT:$RESULT:$MODE" in
+    engineer-*:success:bugfix*|engineer-*:success:integration-fix*)
+        [ -n "$SCOPE_VIOLATION" ] && DEPS="" || DEPS=$(dependents_of "${AGENT#engineer-}")
+        if [ -n "$DEPS" ] && ! echo "$NEXT" | grep -q "blast-radius"; then
+            NEXT="${AGENT#engineer-} is used by $DEPS — first the coordinator runs /pstack:blast-radius on this fix's diff (saved to project-planning/pstack-findings/). Then: $NEXT"
+        fi ;;
+esac
+
+# Steps the hook adds whoever wrote the next command: the verify hint after a QA pass, and the
+# verify refresh at a checkpoint
+case "$AGENT:$RESULT" in
+    qa-*:success) echo "$NEXT" | grep -q "create-verification-skill" || NEXT="$NEXT$VERIFY_HINT" ;;
+    pm:success)
+        if [ "${MODE%% *}" = "checkpoint" ] && [ -f "$CWD/.claude/skills/verify/SKILL.md" ] && ! echo "$NEXT" | grep -q "maintain-verification-skill"; then
+            NEXT="First the coordinator refreshes the verify skill with /pstack:maintain-verification-skill (with your OK). Then: $NEXT"
+        fi ;;
+esac
+
 MSG="Handoff — $AGENT ($MODE, $RESULT)
 Next → $NEXT"
+[ -n "$PENDING" ] && MSG="$MSG
+Still pending from this run: $PENDING — handle it after the step above (QA Results lists the details)"
 
 # Warn if the agent left anything uncommitted (source code and generated agents included)
 UNCOMMITTED=$(git -C "$CWD" status --porcelain 2>/dev/null)

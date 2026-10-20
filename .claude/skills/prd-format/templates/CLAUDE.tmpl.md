@@ -29,7 +29,8 @@ Reading a file to diagnose a problem is always fine. Writing or editing an owned
 | `README.md` (final) | PM | `claude --agent pm` (checkpoint, final phase only) |
 | `project-planning/retrospective/*` | Retrospective | `claude --agent retrospective` (manual only, never automatic) |
 | `project-planning/pstack-findings/*` | You | Only the output of a step in **Required pstack steps** below, saved and committed as that section says. Tech Lead reads these files; nobody edits one after it is committed. |
-| `.claude/skills/verify/` | You, but only when the human explicitly says yes | Created by `/pstack:create-verification-skill` during phase 1, once the app runs; kept current with `/pstack:maintain-verification-skill` under the same rule. QA uses it and never edits it. If the app will not build or start, report that and route it to the owning Engineer — never fix code to make the skill work. |
+| `.claude/skills/verify/` | You, but only when the human explicitly says yes | Created by `/pstack:create-verification-skill` in the first phase where the app runs; kept current with `/pstack:maintain-verification-skill` under the same rule. QA uses it and never edits it. If the app will not build or start, report that and route it to the owning Engineer — never fix code to make the skill work. |
+| `CLAUDE.md` (this file) | You, but only on explicit human instruction | PM's init commits the scaffolded version. Project notes go below the Coordinator Instructions section; the section itself changes only when the framework template does. |
 | `.claude/skills/*`, other `.claude/agents/*.md` | You, but only on explicit human instruction | After the human reviews a Retrospective proposal and explicitly tells you to apply it (e.g. "use the create-agent-skills skill to apply drafts/x.proposal.md"), you may create/edit these files yourself. Never do this unprompted, and never as a shortcut to fix something an owner agent above should fix instead. |
 
 ## Hard rule
@@ -59,11 +60,13 @@ Some handoffs need a pstack review skill run first. Agents never start other age
 
 | Handoff point | Run | Save output to | Then |
 |---|---|---|---|
-| PM `change` with architectural impact | `/pstack:how` on the code the change affects | `project-planning/pstack-findings/<date>-how-<topic>.md` | `claude --agent tech-lead` (change review) |
+| PM `change` tagged `[ARCHITECTURAL]` | `/pstack:how` on the code the change affects | `project-planning/pstack-findings/<date>-how-<topic>.md` | `claude --agent tech-lead` (change review) |
 | QA pass on the last module of a phase | `/pstack:thermos` on the phase's changes: diff from the last Checkpoint History commit (phase 1: the `doc-sync(initial)` commit) to HEAD, limited to the phase's Source Paths | `project-planning/pstack-findings/<date>-thermos-phase-<N>.md` | `claude --agent tech-lead` (integration review) |
-| An approved integration-review fix changes code another module depends on | `/pstack:blast-radius` on the planned fix. Any probe script goes in a scratch directory outside the project; skip its `arena` step | `project-planning/pstack-findings/<date>-blast-radius-<INT-ID>.md` | risks change the plan: `claude --agent tech-lead "on-demand review of <INT-ID> blast-radius"`; otherwise `claude --agent engineer-<module> "integration-fix <INT-ID>"` |
+| An Engineer bugfix or integration fix succeeded on a module other modules depend on (the hook names them) | `/pstack:blast-radius` on that fix's diff. Probe scripts go in a scratch directory outside the project; skip its `arena` step | `project-planning/pstack-findings/<date>-blast-radius-<module or INT-ID>.md` | risks found: `claude --agent tech-lead "on-demand review of the blast-radius for <module or INT-ID>"`; otherwise the QA command the hook printed |
+| Before the fix: an approved integration-review row noted "blast-radius first" (record-decisions) | `/pstack:blast-radius` on the planned fix | `project-planning/pstack-findings/<date>-blast-radius-<INT-ID>.md` | risks change the plan: `claude --agent tech-lead "on-demand review of <INT-ID> blast-radius"`; otherwise `claude --agent engineer-<module> "integration-fix <INT-ID>"` |
 | QA `repeat-failure`, **first escalation of that AC only** | `/pstack:how` and `/pstack:why` on the failing path | `project-planning/pstack-findings/<date>-how-why-<AC-ID>.md` | `claude --agent tech-lead` (repeat-failure review) |
-| Phase 1, once the app runs, no `.claude/skills/verify/` yet — **only if the human says yes** | `/pstack:create-verification-skill` | `.claude/skills/verify/` | the next agent as usual; QA uses `verify` from then on |
+| The first phase in which the app runs, no `.claude/skills/verify/` yet — **only if the human says yes** (a "no" goes to PM's Decisions as "verify skill: declined") | `/pstack:create-verification-skill` | `.claude/skills/verify/` | the next agent as usual; QA uses `verify` from then on |
+| Each PM checkpoint, if `.claude/skills/verify/` exists — with the human's OK | `/pstack:maintain-verification-skill` | `.claude/skills/verify/` | the next phase's first Engineer |
 
 PM runs `pstack:sharpen` itself at the start of init — it is not a coordinator step.
 
