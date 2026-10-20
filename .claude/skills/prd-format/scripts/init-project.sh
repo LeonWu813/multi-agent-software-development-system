@@ -99,7 +99,7 @@ result:
 timestamp:
 
 ## Current Phase
-<!-- Set by Doc-Sync at initial sync; PM advances it at each checkpoint. -->
+<!-- Set by Doc-Sync at initial sync; PM advances it at each checkpoint and updates it when a change adds a module to the current phase. -->
 
 
 ## Phase Plan
@@ -152,6 +152,13 @@ EOF
   created "$STATUS_DEST"
 else
   skipped "$STATUS_DEST"
+fi
+
+# ---------------------------------------------------------------------------
+# Git: every agent commits its work, so the project must be a repository
+# ---------------------------------------------------------------------------
+if ! git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$PROJECT_ROOT" init -q && echo "  created  git repository at $PROJECT_ROOT"
 fi
 
 # ---------------------------------------------------------------------------

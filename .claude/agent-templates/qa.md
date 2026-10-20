@@ -49,7 +49,7 @@ If the invocation names none of them, decide from the module's history: an `inte
 
 Record the workflow in Last Action `mode` as the bare word: `verify`, `regression`, or `integration-fix-verify` (the INT-ID goes in QA Results, not in `mode`).
 
-4. **Human UI results** (invocation starts with `ui-results:`): you stopped earlier with `result: needs-human` and a test script. Record the human's reported outcome per AC in QA Results exactly as they state it ("AC-023: PASS — reported by the human <date>"), then classify any failures and route as usual. Use the same `mode` you recorded when you stopped.
+4. **Human UI results** (invocation starts with `ui-results:`): you stopped earlier with `result: needs-signoff` and a test script. Record the human's reported outcome per AC in QA Results exactly as they state it ("AC-023: PASS — reported by the human <date>"), then classify any failures and route as usual. Use the same `mode` you recorded when you stopped.
 </workflow_selection>
 
 <process>
@@ -72,10 +72,10 @@ Record the workflow in Last Action `mode` as the bare word: `verify`, `regressio
 9. Classify each failure: **implementation bug** (send back to Engineer), **spec issue** (escalate to PM — may require PRD change), or **repeat failure** (see 9a).
 9a. **Before routing any implementation-bug failure to Engineer, check for repeat-failure escalation:**
     - Check `project-planning/modules/<assigned-module>/status.md` for an existing `AC-<ID>: ESCALATED TO TECH LEAD — open` line for this AC. If present, route to `tech-lead`, not Engineer — regardless of how many times it's failed since. Do not re-count; an open marker means Tech Lead already owns this AC.
-    - If no marker is present, count how many times this exact AC has failed across your prior QA Results entries for this module (including this one). On the **3rd failure**, do not route to Engineer — instead escalate to `tech-lead` with `result: repeat-failure` and leave the marker creation to Tech Lead (you do not write the marker yourself).
+    - If no marker is present, count how many times this exact AC has failed across your prior QA Results entries for this module (including this one). After a marker was flipped to `resolved`, start a fresh count from that point. On the **3rd failure**, do not route to Engineer — instead escalate to `tech-lead` with `result: repeat-failure` and leave the marker creation to Tech Lead (you do not write the marker yourself).
     - On the 1st or 2nd failure with no marker present, route to Engineer as normal.
     - If your verification for an AC that has an open `ESCALATED TO TECH LEAD` marker **passes**, flip that line to `— resolved <date>` — this is the one case where you update a line Tech Lead wrote.
-9b. **One run, one `result:`** — when ACs fail for different reasons, record the most urgent: `spec-issue` over `repeat-failure` over `bugs-found`. List every failure in QA Results either way, and name the others in your handoff message so the human can route them after the first is resolved.
+9b. **One run, one `result:`** — when ACs fail for different reasons, record the most urgent: `spec-issue` over `setup-drift` over `repeat-failure` over `bugs-found`. Use `needs-signoff` when you stopped for the human to run a UI test script, and `needs-human` when you are blocked on anything else the human must do (e.g. the server will not start). List every failure in QA Results either way, and name the others in your handoff message so the human can route them after the first is resolved.
 10. Write results to `project-planning/modules/<assigned-module>/status.md` QA Results — one entry per AC, pass/fail with details for failures.
 10a. If this is an integration-review fix verification: also update the row's Status in `project-planning/integration-review.md` — `QA VERIFIED` if the failure scenario no longer reproduces and no regressions were introduced, or back to `APPROVED` with a specific note if it doesn't hold. This status lives in `integration-review.md`, not QA Results.
 11. Update Last Action block in `status.md`.
@@ -83,7 +83,7 @@ Record the workflow in Last Action `mode` as the bare word: `verify`, `regressio
     ```bash
     git add project-planning/modules/<name>/status.md project-planning/status.md
     # also add project-planning/integration-review.md if this was an integration-review fix verification
-    git commit -m "qa-mod-<name>: <pass|fail> — <one-line summary>"
+    git commit -m "qa-<dir>: <pass|fail|needs-signoff|needs-human> — <one-line summary>"
     ```
 </process>
 
@@ -120,8 +120,8 @@ Update this block in `project-planning/status.md` before every commit:
 agent: qa-mod-<name>
 mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
-result: [success|bugs-found|spec-issue|repeat-failure|setup-drift|needs-human]
-ac: [for repeat-failure only: the AC-ID that failed again, e.g. AC-031 — the hook checks that AC's escalation marker]
+result: [success|bugs-found|spec-issue|repeat-failure|setup-drift|needs-signoff|needs-human]
+ac: [repeat-failure only: every AC routed to Tech Lead in this run, comma-separated (e.g. AC-004, AC-031) — the hook checks each AC's escalation marker]
 timestamp: [ISO 8601]
 ```
 </last_action_format>

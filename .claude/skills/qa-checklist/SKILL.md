@@ -14,7 +14,7 @@ Verify that a module's implementation matches its spec. Test observable behavior
 - **Spec ambiguity → escalate to PM**: if the spec doesn't define the correct behavior, that's a spec problem — escalate to PM, not Engineer
 - **Never edit source code**: QA only reports; Engineer fixes
 - **Server-side modules: real server required**: code inspection and unit tests alone are not sufficient for a PASS. QA must start the server with the project's run command (`setup.md`), call real endpoints with sample inputs, and verify actual responses and stored state. If the project has a `verify` skill, use it.
-- **UI modules: verify skill or human checkpoint**: if the project's `verify` skill can drive the UI, use it and cite its evidence. Otherwise produce a written test script (what to navigate, what to click, what to verify) and hand off to the user for sign-off with Last Action `result: needs-human`. QA does not declare PASS on ACs nobody exercised in the running UI.
+- **UI modules: verify skill or human checkpoint**: if the project's `verify` skill can drive the UI, use it and cite its evidence. Otherwise produce a written test script (what to navigate, what to click, what to verify) and hand off to the user for sign-off with Last Action `result: needs-signoff`. QA does not declare PASS on ACs nobody exercised in the running UI.
 </essential_principles>
 
 <routing>

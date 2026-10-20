@@ -122,7 +122,7 @@ If the project's `verify` skill can drive the UI, run each AC through it and rec
    - for each AC: the exact steps (what to open, click, or type), the expected result, and what counts as a failure
    - include any viewport, device, or OS condition the AC names
 3. End with: "**Human sign-off required.** Complete the test script above and confirm each AC passes before this module is marked QA PASS."
-4. Record Last Action `result: needs-human` and stop. When the user reports the results, record PASS or the failures as usual.
+4. Record Last Action `result: needs-signoff` and stop. When the user reports the results, record PASS or the failures as usual.
 
 ---
 

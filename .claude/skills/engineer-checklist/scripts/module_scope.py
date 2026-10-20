@@ -30,10 +30,12 @@ def norm_dir(cell):
 
 
 def norm_path(p):
+    import posixpath
     p = clean(p)
-    if p.startswith("./"):
-        p = p[2:]
-    return p.rstrip("/")
+    if not p:
+        return ""
+    p = posixpath.normpath(p)
+    return "" if p == "." else p.rstrip("/")
 
 
 def parse(status_path):
@@ -108,15 +110,15 @@ def main():
         print(__doc__)
         return 64
     rel = norm_path(sys.argv[4])
+    if rel.startswith("project-planning/modules/") and rel.endswith("/spec.md"):
+        print(f"{rel} is Doc-Sync's spec — Engineers never edit it")
+        return 1
     if not has_source_col:
         print("Module Map has no Source Path column")
         return 3
     if mod not in modules:
         print(f"{mod} has no row in the Module Map")
         return 2
-    if rel == f"project-planning/modules/{mod}/spec.md":
-        print(f"{rel} is Doc-Sync's spec — Engineers never edit it")
-        return 1
     if rel.startswith(f"project-planning/modules/{mod}/") or rel in (
         "project-planning/status.md",
         "project-planning/integration-review.md",

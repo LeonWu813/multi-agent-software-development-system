@@ -70,11 +70,13 @@ else
   #   Test Command: <cmd>
   #   test_command: <cmd>
   #   "test": "<cmd>"    (JSON-ish)
-  TEST_CMD=$(grep -iE '^\s*(test command|test_command|test)\s*[:=]\s*' "$PRODUCTION_MD" \
+  # Markdown bold (**Test:**) is stripped first; a wrapped "..." command has its \" unescaped
+  TEST_CMD=$(sed -E 's/\*\*//g' "$PRODUCTION_MD" \
+    | grep -iE '^\s*[-*]?\s*(test command|test_command|test)\s*[:=]\s*' \
     | head -1 \
-    | sed -E 's/^\s*(test command|test_command|test)\s*[:=]\s*//I' \
+    | sed -E 's/^\s*[-*]?\s*(test command|test_command|test)\s*[:=]\s*//I' \
     | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
-    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/') || true
+    | sed -E '/^".*"$/{s/^"(.*)"$/\1/; s/\\"/"/g;}; s/^'"'"'(.*)'"'"'$/\1/') || true
 
   if [[ -z "$TEST_CMD" ]]; then
     fail "No test command found in $PRODUCTION_MD — tests were not run"
@@ -118,18 +120,18 @@ if [[ -n "$TEST_CMD" ]]; then
 
   # Format: "X passing" / "Y failing" (Mocha style — two separate lines)
   if echo "$TEST_OUTPUT" | grep -qiE '[0-9]+ passing'; then
-    PARSED_PASS=$(echo "$TEST_OUTPUT" | grep -iE '[0-9]+ passing' | grep -oE '[0-9]+' | head -1)
+    PARSED_PASS=$(echo "$TEST_OUTPUT" | grep -oiE '[0-9]+ passing' | grep -oE '[0-9]+' | head -1)
   fi
   if echo "$TEST_OUTPUT" | grep -qiE '[0-9]+ failing'; then
-    PARSED_FAIL=$(echo "$TEST_OUTPUT" | grep -iE '[0-9]+ failing' | grep -oE '[0-9]+' | head -1)
+    PARSED_FAIL=$(echo "$TEST_OUTPUT" | grep -oiE '[0-9]+ failing' | grep -oE '[0-9]+' | head -1)
   fi
 
   # Format: "X passed, Y failed" or "X tests passed, Y failed" (Jest/pytest/generic)
   if [[ -z "$PARSED_PASS" ]] && echo "$TEST_OUTPUT" | grep -qiE '[0-9]+ (tests? )?passed'; then
-    PARSED_PASS=$(echo "$TEST_OUTPUT" | grep -iE '[0-9]+ (tests? )?passed' | grep -oE '[0-9]+' | head -1)
+    PARSED_PASS=$(echo "$TEST_OUTPUT" | grep -oiE '[0-9]+ (tests? )?passed' | grep -oE '[0-9]+' | head -1)
   fi
   if [[ -z "$PARSED_FAIL" ]] && echo "$TEST_OUTPUT" | grep -qiE '[0-9]+ (tests? )?failed'; then
-    PARSED_FAIL=$(echo "$TEST_OUTPUT" | grep -iE '[0-9]+ (tests? )?failed' | grep -oE '[0-9]+' | head -1)
+    PARSED_FAIL=$(echo "$TEST_OUTPUT" | grep -oiE '[0-9]+ (tests? )?failed' | grep -oE '[0-9]+' | head -1)
   fi
 
   # Report parsed counts

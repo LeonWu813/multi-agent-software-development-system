@@ -36,10 +36,24 @@ if git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
       "engineer-$MODULE_NAME("*|"engineer-$MODULE_NAME:"*) continue ;;
       *) BASE="$sha"; break ;;
     esac
-  done < <(git -C "$PROJECT_ROOT" log --format='%H|%s' -n 200 2>/dev/null)
+  done < <(git -C "$PROJECT_ROOT" log --format='%H|%s' 2>/dev/null)
+  # No other commit at all (the engineer's commits are the whole history): compare with the empty tree
+  [[ -z "$BASE" ]] && git -C "$PROJECT_ROOT" rev-parse -q --verify HEAD >/dev/null 2>&1 && BASE=$(git -C "$PROJECT_ROOT" hash-object -t tree /dev/null)
   COMMITTED=""
-  [[ -n "$BASE" ]] && COMMITTED=$(git -C "$PROJECT_ROOT" diff --name-only "$BASE" HEAD 2>/dev/null)
-  UNCOMMITTED=$(git -C "$PROJECT_ROOT" status --porcelain --untracked-files=all 2>/dev/null | sed -E 's/^.{3}//; s/^.* -> //')
+  [[ -n "$BASE" ]] && COMMITTED=$(git -C "$PROJECT_ROOT" -c core.quotePath=false diff --name-only "$BASE" HEAD 2>/dev/null)
+  # -z keeps names with spaces intact; a rename entry is followed by its old path, which is skipped
+  UNCOMMITTED=$(git -C "$PROJECT_ROOT" status --porcelain -z --untracked-files=all 2>/dev/null | python3 -c '
+import sys
+parts = sys.stdin.buffer.read().decode("utf-8", "replace").split("\0")
+i = 0
+while i < len(parts):
+    e = parts[i]
+    if len(e) > 3:
+        print(e[3:])
+        if e[0] in "RC":
+            i += 1
+    i += 1
+')
   SCOPE_SNAPSHOT=$(printf '%s\n%s\n' "$COMMITTED" "$UNCOMMITTED" | sed '/^$/d' | sort -u)
 fi
 
@@ -70,7 +84,7 @@ LINT_CMD=""
 TEST_CMD=""
 
 if [[ ! -f "$PRODUCTION_MD" ]]; then
-  echo "[WARN] production.md not found at $PRODUCTION_MD — skipping command-based checks"
+  fail "production.md not found at $PRODUCTION_MD — build, lint and tests cannot run (Doc-Sync creates it at the initial sync)"
 else
   # Look for lines like "Build: <cmd>", "build: <cmd>", "Build Command: <cmd>", etc.
   BUILD_CMD=$(grep -iE '^\s*build(\s+command)?\s*:\s*.+' "$PRODUCTION_MD" \
@@ -123,7 +137,7 @@ fi
 # Check 3: Tests
 # ---------------------------------------------------------------------------
 if [[ -z "$TEST_CMD" ]]; then
-  skip "Tests — no test command found in production.md"
+  fail "Tests — no test command found in production.md (add 'Test:' to status.md Build Config via PM; if the project truly has no tests, the human must say so)"
 else
   echo "--- Running tests: $TEST_CMD"
   set +e

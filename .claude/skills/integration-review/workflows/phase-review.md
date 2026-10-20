@@ -15,7 +15,7 @@ Run this the first time Tech Lead is invoked for a phase — i.e. all modules in
 7. If `project-planning/integration-review.md` does not exist yet, create it from `templates/integration-review.tmpl.md`.
 7a. **Carry forward DEFERRED rows.** For every row still `DEFERRED` from an earlier phase, add a line to this phase's review listing its ID and asking the human to decide it again. Do not change the old row's status — `record-decisions` does that when the human answers.
 8. For each finding, append a row with: next available ID, category, description, specific location (file + line or component), your rationale and trade-offs, status `PROPOSED`, and the module(s) involved. Leave Assigned Module blank — it is filled when you record the human's approval (`workflows/record-decisions.md`), never before.
-9. If you find nothing, still write a row with Status `NO ISSUES` and Description "No issues found — phase <N> reviewed <date>", so PM's checkpoint gate has something to find. Record Last Action `result: clean`; otherwise `result: issues-found`.
+9. If you find nothing and no DEFERRED row was carried forward, still write a row with Status `NO ISSUES` and Description "No issues found — phase <N> reviewed <date>", so PM's checkpoint gate has something to find. Record Last Action `result: clean` only then; any finding or carried-forward row means `result: issues-found`.
 10. Write a short summary to `status.md` Tech Lead Reviews:
     ```
     ### Integration & Optimization Review — Phase <N> — <date>

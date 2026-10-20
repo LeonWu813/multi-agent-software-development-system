@@ -18,7 +18,8 @@ Each agent does one job, sees only the files its role needs, and commits its wor
 to git before stopping. The human runs every agent directly as its own session
 (`claude --agent <name>`), so agents can ask the human questions; no agent starts
 another. A `Stop` hook then prints the exact command to run next, ready to paste
-(`claude --agent <name> "<start word>"`, e.g. `claude --agent qa-mod-login "verify"`) —
+(`claude --agent <name> "<start word>"`, e.g. `claude --agent qa-mod-login "verify"`;
+anything the human fills in is an UPPERCASE placeholder such as `INT-ID`) —
 and the human decides whether to run it. The default Claude Code session acts
 as a coordinator: it tells the human which agent to run and runs the pstack review
 steps (saved to `project-planning/pstack-findings/`) that Tech Lead reads, but never
@@ -94,8 +95,8 @@ Engineer and QA are base templates (in `.claude/agent-templates/`); Doc-Sync gen
 a thin per-module wrapper for each (`engineer-mod-<name>`, `qa-mod-<name>`), hard-coding
 which module spec, Source Path, and dependencies that instance may use. Source Paths
 never overlap, and one module owns the root project files (manifests, lockfiles,
-`.env.example`, CI config). A `PreToolUse` hook enforces each agent's skill allowlist,
-keeps each Engineer's writes inside its module's scope (the same rules `self-check.sh`
+`.env.example`, CI config). A `PreToolUse` hook enforces each agent's skill allowlist
+(framework agents other than Doc-Sync may also use the project's own `.claude/skills/`), keeps each Engineer's writes inside its module's scope (the same rules `self-check.sh`
 uses), lets only PM change the Module Map, and blocks every agent from writing under
 `~/.claude`.
 
@@ -119,7 +120,8 @@ chmod +x ~/.claude/hooks/*.sh
 # needs python3. Optional: install the pstack plugin for the review steps listed under
 # "Required pstack steps" in the scaffolded CLAUDE.md.
 
-# Start a new project
+# Start a new project (PM's init scaffolds project-planning/ and CLAUDE.md, and runs
+# git init if the folder is not a repository yet)
 cd ~/projects/my-new-app
 claude --agent pm
 ```

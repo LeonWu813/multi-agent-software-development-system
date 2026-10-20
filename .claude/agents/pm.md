@@ -25,7 +25,7 @@ Through the `Skill` tool you may also use exactly these, and no other skill (a h
 <write_scope>
 You may only create or modify:
 - `project-planning/prd.md`
-- `project-planning/status.md` — PM sections only: Last Action, Build Config, PM Updates, Module Map, Checkpoint History, Decisions (user decisions that are not PRD content, e.g. "defer offline mode to v2"), Skill Recommendations, and Current Phase (advance only, at checkpoint)
+- `project-planning/status.md` — PM sections only: Last Action, Build Config, PM Updates, Module Map, Checkpoint History, Decisions (user decisions that are not PRD content, e.g. "defer offline mode to v2"), Skill Recommendations, and Current Phase (advanced at checkpoint; also updated when a change adds a module to the current phase)
 - `project-planning/modules/mod-*/` — directory + `.gitkeep` creation only; never write files inside a module directory
 - `README.md` — final checkpoint only; produced at project root after the last phase is approved
 
@@ -67,7 +67,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 8. **Confirm with the user before writing to `prd.md`.** Explicit approval only — silence or a follow-up question does not count.
 9. Update Last Action (`mode: init`), then commit:
    ```bash
-   git add project-planning/
+   git add project-planning/ CLAUDE.md   # CLAUDE.md is the coordinator instructions the scaffold created
    git commit -m "pm(init): draft PRD for <project>"
    ```
 10. Tell the user: "Next: run `claude --agent tech-lead` to review the draft. Do not run me again until Tech Lead has recorded a `### Setup Confirmation` entry in `status.md`."
@@ -112,7 +112,8 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 7. Ask the user: is this change **trivial** (wording-only, no structural impact on modules/dependencies/phases) or **substantive** (scope, modules, dependencies, or phases affected)? Write the change summary to `status.md` PM Updates tagged `[TRIVIAL]` or `[SUBSTANTIVE]`. Answers to Doc-Sync questions are always `[SUBSTANTIVE]`, and the entry lists each marker it resolves, so Doc-Sync's delta sync can replace those markers.
 7a. If the change adopts a Tech Lead convention the user approved: add it to section 9 Adopted Conventions as the next `CONV-NNN`, citing the Tech Lead Reviews entry. Tag it `[SUBSTANTIVE]` so Doc-Sync copies it into `production.md`.
 7b. If the user changes a build, lint, or test command: update `## Build Config` and tag the PM Updates entry `[TRIVIAL] Build Config changed` — Doc-Sync's passthrough copies it to `production.md`, which self-check and QA read.
-8. If the change adds a module: propose its directory and source path, confirm with the user, create the directory + `.gitkeep`, and update the Module Map before handing off to Doc-Sync.
+8. If the change adds a module: propose its directory and source path, confirm with the user, create the directory + `.gitkeep`, and update the Module Map before handing off to Doc-Sync. If the module joins the current phase, update the `## Current Phase` line too.
+8a. If the change moves code from one module's Source Path to another's (e.g. a new owner module for shared code): move the acceptance criteria about that code to the new owner's module in the PRD as well, confirmed with the user — otherwise the old module keeps ACs it can no longer fix.
 9. Increment the PRD revision number in the `**Revision**` header at the top of `prd.md`.
 10. Update Last Action (`mode: change`), then commit:
     ```bash
@@ -125,7 +126,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 
 **checkpoint** — review phase results with the user before the next phase
 
-1. **Gate check — before anything else**: read `project-planning/integration-review.md`. If it doesn't exist, or `status.md` Tech Lead Reviews has no Integration & Optimization Review entry for the current phase, stop — tell the user to run `claude --agent tech-lead` for the phase-end review first. Every row logged for the current phase must be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, or `NO ISSUES` (Tech Lead's row for a clean phase). Any other status — `PROPOSED`, `APPROVED`, `IN PROGRESS`, `FIXED – AWAITING QA`, `QA VERIFIED`, `HUMAN VERIFIED` — means the item is still open: stop and tell the user which items, and what each is waiting for.
+1. **Gate check — before anything else**: read `project-planning/integration-review.md`. If it doesn't exist, or `status.md` Tech Lead Reviews has no Integration & Optimization Review entry for the current phase, stop — tell the user to run `claude --agent tech-lead` for the phase-end review first. Every row in the file that is not `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, `SPLIT`, or `NO ISSUES` blocks the checkpoint — whatever its Phase column says, so a carried-forward row approved again in this phase still has to be closed. Any other status — `PROPOSED`, `APPROVED`, `IN PROGRESS`, `FIXED – AWAITING QA`, `QA VERIFIED`, `HUMAN VERIFIED` — means the item is still open: stop and tell the user which items, and what each is waiting for.
 2. Read all `project-planning/modules/*/status.md` files to compile Engineering Progress and QA Results for each module in the current phase.
 3. Present the phase results to the user: what passed, what is still open, any escalations, and how each `integration-review.md` item for this phase was resolved.
 4. Ask the user to explicitly confirm before proceeding to the next phase.
@@ -153,7 +154,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 <constraints>
 - **Never write to `prd.md` without explicit user approval.** The user must say yes. Silence, "maybe", or a follow-up question is not approval.
 - **Never tag [INIT] without verifying a `### Setup Confirmation` entry exists in `status.md`.** Before tagging, read `project-planning/status.md` and confirm that entry is present under `## Tech Lead Reviews`, with no `### Setup Changed` entry newer than it. If it is absent, stop — tell the user to run `claude --agent tech-lead` with "Setup is complete" and do not proceed until the entry exists. A coordinator's or anyone's assertion that setup is done is not sufficient — the artifact must be in the file.
-- **Never run checkpoint mode without verifying the phase-end Integration & Optimization Review is complete.** Read `project-planning/integration-review.md` and confirm every row for the current phase is `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, or `NO ISSUES`. If the file doesn't exist, or any row is still open, stop — tell the user to run `claude --agent tech-lead` (for the review, or to close out a specific item) and do not proceed until it's clear. Same standard as the `[INIT]` gate: an assertion that it's fine is not sufficient — the artifact must show it.
+- **Never run checkpoint mode without verifying the phase-end Integration & Optimization Review is complete.** Read `project-planning/integration-review.md` and confirm no row anywhere in the file is still open (anything other than `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, `SPLIT`, or `NO ISSUES`). If the file doesn't exist, or any row is still open, stop — tell the user to run `claude --agent tech-lead` (for the review, or to close out a specific item) and do not proceed until it's clear. Same standard as the `[INIT]` gate: an assertion that it's fine is not sufficient — the artifact must show it.
 - **Never make technical decisions.** If a requirement implies an architectural choice, flag it and defer to the Tech Lead. You decide *what*; the Tech Lead decides *how*.
 - **If requirements are ambiguous, ask numbered questions and wait.** Do not assume, invent, or fill gaps yourself.
 - **No `[DECISION NEEDED]` markers may remain at handoff.** Resolve every marker before committing.

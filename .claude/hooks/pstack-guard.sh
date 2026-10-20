@@ -55,6 +55,13 @@ if [ "$TOOL" = "Skill" ]; then
     for s in $ALLOWED; do
         [ "$SKILL" = "$s" ] && exit 0
     done
+    # Project-level skills (the project's own .claude/skills/<name>/, e.g. verify, or one added from an
+    # approved Retrospective proposal) are open to every framework agent except Doc-Sync, whose output
+    # must stay a verbatim copy of the PRD.
+    case "$SKILL" in
+        *:*|*/*|..*) ;;
+        *) [ "$AGENT" != "doc-sync" ] && [ -f "$CWD/.claude/skills/$SKILL/SKILL.md" ] && exit 0 ;;
+    esac
     block "$AGENT may not use the skill '$SKILL'. Allowed for $AGENT: ${ALLOWED:-none}. If you need something outside your skills, record it as a blocker or note for the human instead."
 fi
 

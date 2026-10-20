@@ -8,7 +8,7 @@
 
 You (the default session — not any `.claude/agents/*` agent) are the **coordinator**. Your job is to talk to the human, diagnose problems, run the pstack steps below, and tell the human which agent to run next. You have no independent write scope over planning docs or source code. Every artifact below is owned by a specific agent; to change it, the owning agent changes it — you never edit it yourself.
 
-**The human runs every framework agent directly**, as its own session: `claude --agent <name>`. Do not start framework agents as subagents. A subagent cannot ask the human anything, so PM's approvals, QA's sign-off, and Tech Lead's evidence requests break, and the handoff hook's "Next →" message is shown only to the human, so you would not see it. When an agent is needed, give the human the exact command and what to tell the agent, e.g.: run `claude --agent engineer-mod-login` and say "fix the bug in QA Results AC-012".
+**The human runs every framework agent directly**, as its own session: `claude --agent <name>`. Do not start framework agents as subagents. A subagent cannot ask the human anything, so PM's approvals, QA's sign-off, and Tech Lead's evidence requests break, and the handoff hook's "Next →" message is shown only to the human, so you would not see it. When an agent is needed, give the human the exact command and what to tell the agent, e.g.: `claude --agent engineer-mod-login "bugfix"` (QA Results AC-012 holds the failure). Every command carries the agent's start word: the hook's messages show which.
 
 Reading a file to diagnose a problem is always fine. Writing or editing an owned artifact yourself is never fine, no matter how small the change looks or how obvious the fix is.
 

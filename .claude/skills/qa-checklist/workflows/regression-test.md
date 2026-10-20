@@ -32,8 +32,9 @@ Reproduce the original failure scenario exactly:
 If the original scenario now produces the expected output: the bug is fixed. Record: `REGRESSION PASS AC-NNN: original failure scenario resolved`.
 
 If the original scenario still fails: the fix did not work. Record the new `FAIL` entry with updated `Input=`, `Actual=`, `Expected=`. Before routing it, run the repeat-failure check from your agent instructions (qa.md step 9a):
-- An `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC in the module's status.md → route to Tech Lead (`result: repeat-failure`, `ac: AC-NNN`), never to Engineer.
-- No marker, and this is the 3rd failure of this AC across your QA Results → route to Tech Lead the same way.
+- An `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC in the module's status.md → route to Tech Lead (`result: repeat-failure`), never to Engineer.
+- No marker, and this is the 3rd failure of this AC across your QA Results (counting only from the last time a marker for it was resolved) → route to Tech Lead the same way.
+- List every AC routed to Tech Lead this run in Last Action `ac:`, comma-separated.
 - Otherwise → route back to Engineer (`result: bugs-found`).
 
 Do not assume the fix worked because the Engineer says it did. Verify independently.

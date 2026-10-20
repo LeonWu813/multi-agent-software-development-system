@@ -47,9 +47,12 @@ FINGERPRINT=$(printf '%s' "$LAST_ACTION" | cksum | cut -d' ' -f1)
 
 # First non-comment line of Current Phase (comments may span several lines)
 CURRENT_PHASE=$(awk '/^## Current Phase/{found=1; next} found && /^## /{exit} found && /<!--/{c=1} found && c {if (/-->/) c=0; next} found && NF{print; exit}' "$STATUS_FILE")
+# [INIT] counts only when PM tagged it in PM Updates (Setup Confirmation text mentions it too)
 INIT_TAGGED=0
-grep -q '\[INIT\]' "$STATUS_FILE" && INIT_TAGGED=1
-AC=$(echo "$LAST_ACTION" | grep -m1 "^ac:" | sed 's/ac:[[:space:]]*//')
+awk '/^## PM Updates/{f=1; next} f && /^## /{exit} f' "$STATUS_FILE" | grep -q '\[INIT\]' && INIT_TAGGED=1
+AC=$(echo "$LAST_ACTION" | grep -m1 "^ac:" | sed 's/ac:[[:space:]]*//; s/,/ /g')
+# An agent may name the exact next command itself (Tech Lead reviews do), which wins over the defaults below
+NEXT_FIELD=$(echo "$LAST_ACTION" | grep -m1 "^next:" | sed 's/next:[[:space:]]*//')
 
 # Offer the verify skill only during phase 1 (no checkpoint recorded yet) and only while it doesn't exist
 CHECKPOINTS=$(awk '/^## Checkpoint History/{found=1; next} found && /^## /{exit} found && /approved/' "$STATUS_FILE")
@@ -57,12 +60,12 @@ VERIFY_HINT=""
 [ ! -f "$CWD/.claude/skills/verify/SKILL.md" ] && [ -z "$CHECKPOINTS" ] && VERIFY_HINT=" Optional, phase 1 only: once the app runs, have the coordinator run /pstack:create-verification-skill (with your OK)."
 
 # Every command below is written as `claude --agent <name> "<what to say>"`, so it pastes into any shell.
-if [ "$RESULT" = "needs-human" ]; then
-    NEXT="$AGENT is waiting on you — read its last message (and its status.md entry), do what it asks, then run \`claude --agent $AGENT\` and give it your answer"
-    case "$AGENT" in
-        qa-*) NEXT="QA needs your sign-off — run its test script (in QA Results), then: \`claude --agent $AGENT \"ui-results: <which ACs passed, which failed and how>\"\`" ;;
-    esac
-fi
+case "$RESULT" in
+    needs-human)   NEXT="$AGENT is waiting on you — read its last message (and its status.md entry), do what it asks, then run \`claude --agent $AGENT\` and give it your answer" ;;
+    needs-signoff) NEXT="QA needs your sign-off — run its test script (in QA Results), then: \`claude --agent $AGENT \"ui-results: WHICH ACS PASSED, WHICH FAILED AND HOW\"\`" ;;
+esac
+# next: never hides a setup change — the human must redo setup first
+[ -z "$NEXT" ] && [ -n "$NEXT_FIELD" ] && [ "$RESULT" != "setup-changed" ] && NEXT="$NEXT_FIELD"
 
 [ -n "$NEXT" ] || case "$AGENT" in
     pm)
@@ -74,40 +77,43 @@ fi
             checkpoint)
                 if [ "$RESULT" = "project-complete" ]; then
                     NEXT="Project complete — README.md written. Optional: \`claude --agent retrospective\`"
+                elif [ "$RESULT" != "success" ]; then
+                    NEXT="The checkpoint did not complete ($RESULT) — read PM's last message for what is still open"
                 else
-                    NEXT="Now in ${CURRENT_PHASE:-the next phase}. Next: \`claude --agent engineer-<first module of this phase> \"implement\"\` (see Phase Plan)"
+                    NEXT="Now in ${CURRENT_PHASE:-the next phase}. Next: \`claude --agent engineer-FIRST_MODULE_OF_PHASE \"implement\"\` (see Phase Plan)"
                 fi ;;
             *)          NEXT="Check PM Updates in project-planning/status.md" ;;
         esac ;;
     tech-lead)
-        [ "$RESULT" = "setup-changed" ] && MODE="setup-changed"
-        case "$MODE" in
+        ROUTE="$MODE"
+        [ "$RESULT" = "setup-changed" ] && ROUTE="setup-changed"
+        case "$ROUTE" in
             setup-changed)          NEXT="Setup changed (see Setup Changed in status.md Tech Lead Reviews). Redo the listed setup.md steps, then: \`claude --agent tech-lead \"Setup is complete\"\`" ;;
             pre-sync-review)        NEXT="Read the re-review in status.md Tech Lead Reviews. Changes requested: \`claude --agent pm \"iterate\"\`. You approve the PRD: \`claude --agent pm \"finalize\"\`" ;;
             init-review)            NEXT="Complete every step in project-planning/setup.md, then: \`claude --agent tech-lead \"Setup is complete\"\`" ;;
             setup-confirmation)
                 if [ "$INIT_TAGGED" = "1" ]; then
-                    NEXT="Setup re-confirmed. Resume the step that found the drift (usually: \`claude --agent qa-<module> \"verify\"\`)"
+                    NEXT="Setup re-confirmed. Resume where the work stopped: re-run the agent that reported the drift (usually QA for that module, with the same word it had)"
                 else
                     NEXT="\`claude --agent pm \"iterate\"\` to apply Tech Lead's feedback, or \`claude --agent pm \"finalize\"\` if there is none and you approve the PRD"
                 fi ;;
             change-review)          NEXT="Read the review in status.md Tech Lead Reviews. Accept as-is: \`claude --agent doc-sync\`. PRD needs revising: \`claude --agent pm \"change\"\`" ;;
-            on-demand-review)       NEXT="Read the review in status.md Tech Lead Reviews. Minor adjustment: \`claude --agent engineer-<module> \"bugfix\"\`. PRD-level change: \`claude --agent pm \"change\"\`" ;;
+            on-demand-review)       NEXT="Read the review in status.md Tech Lead Reviews. Tech Lead names the next command in its review; if it didn't, PRD-level change: \`claude --agent pm \"change\"\`" ;;
             integration-review)
                 if [ "$RESULT" = "clean" ]; then
                     NEXT="No integration issues this phase. Next: \`claude --agent pm \"checkpoint\"\`"
                 else
                     NEXT="Review project-planning/integration-review.md and decide every row (Concerns and Recommendations), then: \`claude --agent tech-lead \"decisions: INT-001 approve, INT-002 reject, INT-003 defer\"\`"
                 fi ;;
-            record-decisions)       NEXT="For each APPROVED item: \`claude --agent engineer-<Assigned Module> \"integration-fix <INT-ID>\"\` (rows noted 'blast-radius first': the coordinator runs /pstack:blast-radius before that). Nothing approved and nothing PROPOSED: \`claude --agent pm \"checkpoint\"\`" ;;
-            confirm-fix)            NEXT="Every row for this phase CONFIRMED CLOSED, REJECTED, DEFERRED or NO ISSUES: \`claude --agent pm \"checkpoint\"\`. Otherwise continue the next open row (see integration-review.md Status)" ;;
-            repeat-failure-review)  NEXT="Tech Lead's diagnosis is in status.md Tech Lead Reviews. Next: \`claude --agent engineer-${MODULE:-<module>} \"bugfix — follow Tech Lead's repeat-failure diagnosis${AC:+ for $AC}\"\`, or \`claude --agent pm \"change\"\` if it needs a requirements change" ;;
+            record-decisions)       NEXT="For each APPROVED item: \`claude --agent engineer-ASSIGNED_MODULE \"integration-fix INT-ID\"\` (rows noted 'blast-radius first': the coordinator runs /pstack:blast-radius before that). Nothing approved and nothing PROPOSED: \`claude --agent pm \"checkpoint\"\`" ;;
+            confirm-fix)            NEXT="No row in integration-review.md still open (all CONFIRMED CLOSED, REJECTED, DEFERRED, SPLIT or NO ISSUES): \`claude --agent pm \"checkpoint\"\`. Otherwise continue the next open row (see integration-review.md Status)" ;;
+            repeat-failure-review)  NEXT="Tech Lead's diagnosis is in status.md Tech Lead Reviews. Next: \`claude --agent engineer-${MODULE:-MODULE} \"bugfix — follow Tech Lead's repeat-failure diagnosis${AC:+ for $AC}\"\`, or \`claude --agent pm \"change\"\` if it needs a requirements change" ;;
             *)                      NEXT="Read the latest entry in status.md Tech Lead Reviews and decide the next agent" ;;
         esac ;;
     doc-sync)
         case "$RESULT" in
             needs-pm)   NEXT="Doc-Sync left unresolved PRD questions (see Sync Reports). \`claude --agent pm \"change\"\` before any engineering starts" ;;
-            *)          NEXT="Review the sync report in status.md. If it generated new agents, open a new terminal so they load. Then: \`claude --agent engineer-<first module in the Phase Plan not yet built> \"implement\"\`" ;;
+            *)          NEXT="Review the sync report in status.md. If it generated new agents, open a new terminal so they load. Then: \`claude --agent engineer-NEXT_MODULE \"implement\"\` (the first module in the Phase Plan not yet built; if this sync created an owner module that takes over existing code, first \`claude --agent tech-lead \"log migration rows for OWNER_MODULE\"\`)" ;;
         esac ;;
     engineer-*)
         SLUG="${AGENT#engineer-}"
@@ -115,7 +121,7 @@ fi
             success)
                 case "$MODE" in
                     bugfix*)          NEXT="\`claude --agent qa-$SLUG \"regression\"\`" ;;
-                    integration-fix*) NEXT="\`claude --agent qa-$SLUG \"integration-fix-verify <INT-ID from integration-review.md>\"\`" ;;
+                    integration-fix*) NEXT="\`claude --agent qa-$SLUG \"integration-fix-verify INT-ID\"\` (the ID from integration-review.md)" ;;
                     *)                NEXT="\`claude --agent qa-$SLUG \"verify\"\`" ;;
                 esac ;;
             blocked-dependency) NEXT="A module this one depends on has not passed QA yet — finish that module first (see Phase Plan). If the phase order itself is wrong: \`claude --agent pm \"change\"\`" ;;
@@ -124,29 +130,36 @@ fi
         esac ;;
     qa-*)
         SLUG="${AGENT#qa-}"
-        case "$MODE" in
-            integration-fix-verify*)
-                case "$RESULT" in
-                    success) NEXT="Verify the fix yourself, then: \`claude --agent tech-lead \"<INT-ID> verified: <what you checked>\"\`" ;;
-                    *)       NEXT="The integration fix does not hold yet — \`claude --agent engineer-$SLUG \"integration-fix <INT-ID>\"\`" ;;
-                esac ;;
-            *)
-                case "$RESULT" in
-                    success)        NEXT="Next module in the Phase Plan: \`claude --agent engineer-<next module> \"implement\"\`. If this was the last module of the phase: the coordinator runs /pstack:thermos on the phase's changes (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"phase-end integration review\"\`.$VERIFY_HINT" ;;
-                    bugs-found)     NEXT="\`claude --agent engineer-$SLUG \"bugfix\"\` — failures are in QA Results" ;;
-                    setup-drift)    NEXT="setup.md is out of step with the real infrastructure (see QA Results) — \`claude --agent tech-lead \"on-demand review: setup drift found by qa-$SLUG\"\`" ;;
-                    spec-issue)     NEXT="\`claude --agent pm \"change: spec issue from qa-$SLUG\"\` — PRD update needed" ;;
-                    repeat-failure)
-                        MARKER_FILE="$CWD/project-planning/modules/${MODULE:-$SLUG}/status.md"
-                        if [ -n "$AC" ] && grep -q "$AC: ESCALATED TO TECH LEAD — open" "$MARKER_FILE" 2>/dev/null; then
-                            NEXT="$AC is already escalated — \`claude --agent tech-lead \"repeat-failure review $AC\"\` (Tech Lead stays the owner until it passes)"
-                        elif [ -n "$AC" ]; then
-                            NEXT="First escalation of $AC — the coordinator runs /pstack:how and /pstack:why on the failing path (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"repeat-failure review $AC\"\`"
-                        else
-                            NEXT="Repeat failure — if this AC has no open ESCALATED marker yet, the coordinator runs /pstack:how and /pstack:why first; then \`claude --agent tech-lead \"repeat-failure review <AC-ID>\"\`"
-                        fi ;;
-                    *)              NEXT="Check QA Results in project-planning/modules/${MODULE:-$SLUG}/status.md" ;;
-                esac ;;
+        case "$RESULT" in
+            success)
+                if [ "${MODE%% *}" = "integration-fix-verify" ]; then
+                    NEXT="Verify the fix yourself, then: \`claude --agent tech-lead \"INT-ID verified: WHAT YOU CHECKED\"\`"
+                else
+                    NEXT="Next module in the Phase Plan: \`claude --agent engineer-NEXT_MODULE \"implement\"\`. If this was the last module of the phase: the coordinator runs /pstack:thermos on the phase's changes (saved to project-planning/pstack-findings/), then \`claude --agent tech-lead \"phase-end integration review\"\`.$VERIFY_HINT"
+                fi ;;
+            bugs-found)
+                if [ "${MODE%% *}" = "integration-fix-verify" ]; then
+                    NEXT="The integration fix does not hold yet — \`claude --agent engineer-$SLUG \"integration-fix INT-ID\"\`"
+                else
+                    NEXT="\`claude --agent engineer-$SLUG \"bugfix\"\` — failures are in QA Results"
+                fi ;;
+            setup-drift)    NEXT="setup.md is out of step with the real infrastructure (see QA Results) — \`claude --agent tech-lead \"on-demand review: setup drift found by qa-$SLUG\"\`" ;;
+            spec-issue)     NEXT="\`claude --agent pm \"change: spec issue from qa-$SLUG\"\` — PRD update needed" ;;
+            repeat-failure)
+                MARKER_FILE="$CWD/project-planning/modules/${MODULE:-$SLUG}/status.md"
+                if [ -z "$AC" ]; then
+                    NEXT="Repeat failure — if the AC has no open ESCALATED marker yet, the coordinator runs /pstack:how and /pstack:why first; then \`claude --agent tech-lead \"repeat-failure review AC-ID\"\`"
+                else
+                    NEW=""; OPEN=""
+                    for a in $AC; do
+                        if grep -E "$a[^A-Za-z0-9].*ESCALATED TO TECH LEAD — open" "$MARKER_FILE" >/dev/null 2>&1; then OPEN="$OPEN $a"; else NEW="$NEW $a"; fi
+                    done
+                    NEXT=""
+                    [ -n "$NEW" ] && NEXT="First escalation of${NEW} — the coordinator runs /pstack:how and /pstack:why on the failing path (saved to project-planning/pstack-findings/). "
+                    [ -n "$OPEN" ] && NEXT="${NEXT}Already escalated:${OPEN} (Tech Lead stays the owner). "
+                    NEXT="${NEXT}Then: \`claude --agent tech-lead \"repeat-failure review ${AC}\"\`"
+                fi ;;
+            *)              NEXT="Check QA Results in project-planning/modules/${MODULE:-$SLUG}/status.md" ;;
         esac ;;
     *)
         exit 0 ;;

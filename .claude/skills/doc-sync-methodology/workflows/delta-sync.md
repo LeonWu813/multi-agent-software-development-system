@@ -30,6 +30,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Change to Acceptance Criteria → the module spec(s) where those AC entries appear are affected
    - Change to Phases & Milestones → status.md Phase Plan section is affected
    - Change to Adopted Conventions → production.md Shared Conventions is affected (copy the entry verbatim, keeping its ID)
+   - A `[TRIVIAL] Build Config changed` entry in the same window → copy status.md Build Config into production.md Shared Conventions again
    - A PM Updates entry that answers your earlier `[AMBIGUITY]`/`[CONFLICT]`/`[BLOCKER]` questions → each file holding one of the listed markers is affected
    - Addition of a new module → a new spec.md must be created
    - Removal of a module → the spec.md must be noted (not deleted)
@@ -54,7 +55,8 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Fill all sections following the same rules as initial-sync.md step 3. Remove all HTML template comments from the completed spec.
    - Add the new module as a row in production.md's Module Index table (MOD-ID, Module Name, Directory, Description).
    - Create `modules/<dir>/status.md` and generate `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md` exactly as initial-sync.md step 3 describes (template frontmatter `tools` and `model` copied unchanged).
-   - In your handoff message, tell the human to open a new terminal before running the new agents, so they load.
+   - In your handoff message, tell the human to open a new terminal before running the new agents, so they load. Regenerated agents (step 5a) count too.
+   - If the PRD change says the new module takes over code that other modules already hold, end your handoff with: `claude --agent tech-lead "log migration rows for <owner dir>"` — Tech Lead logs one integration-review row per module that must give up its copy.
    - The same applies to a module you skipped at an earlier sync with a `[BLOCKER]` that PM has since fixed (its MOD-ID is now in the Module Map): write its spec, status file, and agents now, and list the BLOCKER as resolved in the sync report.
 
 5a. **Regenerate the agents of changed modules.** If a module's Source Path, dependencies, or directory changed in the Module Map or the PRD, regenerate its `engineer-<dir>.md` and `qa-<dir>.md` from the templates so the hardcoded paths match the Module Map again. Never leave a wrapper that names an old Source Path.
