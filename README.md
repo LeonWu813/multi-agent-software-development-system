@@ -99,6 +99,7 @@ makes them produce correct software reliably. Four ideas do most of the work:
 Engineer and QA are base templates (in `.claude/agent-templates/`); Doc-Sync generates
 a thin per-module wrapper for each (`engineer-mod-<name>`, `qa-mod-<name>`), hard-coding
 which module spec, Source Path, and dependencies that instance may use. Source Paths
+(folders, files, or filename patterns such as `supabase/migrations/*_mod_003_*`)
 never overlap, and one module owns the root project files (manifests, lockfiles,
 `.env.example`, CI config). A `PreToolUse` hook enforces each agent's skill allowlist
 (framework agents other than Doc-Sync may also use the project's own `.claude/skills/`), keeps each Engineer's writes inside its module's scope (the same rules `self-check.sh`
@@ -106,9 +107,13 @@ uses), lets only PM change the Module Map, and blocks every agent from writing u
 `~/.claude`. Shell writes never pass through that hook, so the handoff hook re-runs the
 scope check whenever an Engineer stops: any file outside the module's scope replaces the
 next step with a "Scope violation … Fix first" message that sends the Engineer back in
-`scope-fix` mode to undo exactly those changes. The check attributes changes by commit
-prefix, so every agent commit carries its role prefix (`engineer-mod-login(implement): …`)
-and the human prefixes manual commits `human: …`.
+`scope-fix` mode to undo exactly those changes; once the scope is clean, the hook itself
+routes back to the step that was interrupted. The check does not trust commit messages:
+the handoff hook records a base commit at every stop where HEAD moved, and an Engineer's
+changes are everything since the last base someone else recorded. Every agent commit
+still carries its role prefix (`engineer-mod-login(implement): …`) so the history reads
+clearly; the coordinator's own commits start `coordinator(<what>): …` and the human's
+manual commits `human: …`, and files changed only by those two are left out of the check.
 
 ---
 

@@ -26,7 +26,7 @@ fi
 
 # Scope check runs BEFORE build and test, so their output (caches, bytecode, coverage) is never
 # mistaken for the engineer's work. module_scope.py is the same check handoff.sh runs when the
-# Engineer stops: uncommitted + untracked files, plus this module's own engineer-<dir>(...) commits.
+# Engineer stops: everything changed since the base the hook recorded at the last handoff.
 SCOPE_PY="$(cd "$(dirname "$0")" && pwd)/module_scope.py"
 SCOPE_OUT=""; SCOPE_RC=0
 if git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then

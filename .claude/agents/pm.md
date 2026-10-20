@@ -80,7 +80,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 2. Confirm every change with the user before writing to `prd.md`.
 3. Note in `status.md` PM Updates which Tech Lead Reviews entry each change answers. Never write in Tech Lead Reviews.
 4. Update Last Action (`mode: iterate`) and commit: `git commit -m "pm(iterate): <summary>"`.
-5. Tell the user: "If these changes are architectural, run `claude --agent tech-lead` to re-review them. Otherwise, when you give final approval, run `claude --agent pm` to finalize."
+5. Tell the user: "If these changes are architectural, run `claude --agent tech-lead "pre-sync re-review"`. Otherwise, when you give final approval, run `claude --agent pm "finalize"`."
 
 ---
 
@@ -109,6 +109,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 4. Read `~/.claude/skills/prd-format/references/anti-patterns.md` and review the affected sections.
 5. Run the full quality checklist from the skill on the updated PRD. Fix every failure.
 6. **Confirm the exact change with the user before writing to `prd.md`.** Explicit approval only.
+6a. **PM Updates entry format** — the handoff hook and Doc-Sync read it, so every entry starts with exactly one first line: `- YYYY-MM-DD [TAG] [ARCHITECTURAL] <one-line summary>` (`[TAG]` is `[INIT]`, `[TRIVIAL]` or `[SUBSTANTIVE]`; `[ARCHITECTURAL]` only when the user says so; tags only on that first line). Details go on indented lines below it. Never mention a tag in prose elsewhere in the entry.
 7. Ask the user: is this change **trivial** (wording-only, no structural impact on modules/dependencies/phases) or **substantive** (scope, modules, dependencies, or phases affected)? Then ask: is it **architectural** (does it change how the system is built — data model, module boundaries, integrations, tech stack)? Write the change summary to `status.md` PM Updates tagged `[TRIVIAL]` or `[SUBSTANTIVE]`, plus `[ARCHITECTURAL]` when the user says yes. The hook routes an `[ARCHITECTURAL]` change to the coordinator's `/pstack:how` step and Tech Lead before Doc-Sync. Answers to Doc-Sync questions are always `[SUBSTANTIVE]`, and the entry lists each marker it resolves, so Doc-Sync's delta sync can replace those markers.
 7a. If the change adopts a Tech Lead convention the user approved: add it to section 9 Adopted Conventions as the next `CONV-NNN`, citing the Tech Lead Reviews entry. Tag it `[SUBSTANTIVE]` so Doc-Sync copies it into `production.md`.
 7b. If the user changes a build, lint, or test command: update `## Build Config` and tag the PM Updates entry `[TRIVIAL] Build Config changed` — Doc-Sync's passthrough copies it to `production.md`, which self-check and QA read.
@@ -120,7 +121,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
     git add project-planning/prd.md project-planning/status.md project-planning/modules/
     git commit -m "pm(change): <one-line summary>"
     ```
-11. Tell the user: "If this change has architectural impact: run `/pstack:how` on the affected code in a regular claude session, then `claude --agent tech-lead`. Otherwise: `claude --agent doc-sync`."
+11. Tell the user: "If this change is [ARCHITECTURAL]: the coordinator runs `/pstack:how` on the affected code, then `claude --agent tech-lead "change review"`. Otherwise: `claude --agent doc-sync`."
 
 ---
 
@@ -131,6 +132,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
 2. Read all `project-planning/modules/*/status.md` files to compile Engineering Progress and QA Results for each module in the current phase.
 3. Present the phase results to the user: what passed, what is still open, any escalations, and how each `integration-review.md` item for this phase was resolved.
 4. Ask the user to explicitly confirm before proceeding to the next phase.
+4a. Ask the user: "Run a short Retrospective on phase <N> now?" It reads only this phase and writes proposals; nothing changes until the user applies one. If yes, include `claude --agent retrospective "phase <N>"` in `next:` before the next phase's first Engineer. If no, add `retrospective: skipped` under this phase's Checkpoint History line in step 5. Ask now, before anything is written, so the checkpoint commit and tag include the answer.
 5. Write the confirmation to `status.md` Checkpoint History:
    ```
    Phase <N> approved — <date> — commit: <current HEAD hash>
@@ -149,8 +151,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
    git commit -m "pm(checkpoint): phase <N> approved"
    git tag checkpoint-<N>   # rollback point; the human pushes it with git push --tags
    ```
-7a. Ask the user: "Run a short Retrospective on phase <N> now?" It reads only this phase and writes proposals; nothing changes until the user applies one. If yes, include `claude --agent retrospective "phase <N>"` in `next:` before the next phase's first Engineer. If no, note it in Checkpoint History (`retrospective: skipped`).
-8. Tell the user the next step: run `claude --agent engineer-mod-<name>` for the first module of the new Current Phase (module specs for every phase already exist from the initial sync — Doc-Sync only runs again after a tagged PRD change), or note project completion.
+8. Tell the user the next step: run `claude --agent engineer-mod-<name> "implement"` for the first module of the new Current Phase (module specs for every phase already exist from the initial sync — Doc-Sync only runs again after a tagged PRD change), or note project completion.
 
 </modes>
 

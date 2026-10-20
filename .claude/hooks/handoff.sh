@@ -28,6 +28,19 @@ fi
 STATUS_FILE="$CWD/project-planning/status.md"
 [ ! -f "$STATUS_FILE" ] && exit 0  # not a dev-team-agent project — exit silently
 
+# Base log for the scope check: whenever HEAD has moved since the last entry, record who stopped.
+# An Engineer's changes are everything since the last entry written by anyone else, so the check
+# never relies on commit messages (module_scope.py reads this log).
+GIT_DIR=$(git -C "$CWD" rev-parse --absolute-git-dir 2>/dev/null)
+STOPPED_BY=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null)
+if [ -n "$GIT_DIR" ]; then
+    HEAD_SHA=$(git -C "$CWD" rev-parse -q --verify HEAD 2>/dev/null)
+    BASE_LOG="$GIT_DIR/framework-handoff-log"
+    if [ -n "$HEAD_SHA" ] && [ "$(tail -1 "$BASE_LOG" 2>/dev/null | cut -d' ' -f1)" != "$HEAD_SHA" ]; then
+        echo "$HEAD_SHA $(date +%s) ${STOPPED_BY:-coordinator}" >> "$BASE_LOG"
+    fi
+fi
+
 # Extract Last Action block (between ## Last Action and the next ## heading)
 LAST_ACTION=$(awk '/^## Last Action/{found=1; next} found && /^## /{exit} found{print}' "$STATUS_FILE")
 
@@ -40,7 +53,6 @@ MODULE=$(echo "$LAST_ACTION" | grep -m1 "^module:" | sed 's/module:[[:space:]]*/
 
 # Show each handoff once. Stop and SubagentStop both fire, and Stop fires after every
 # main-session turn; only a new Last Action block produces a new message.
-GIT_DIR=$(git -C "$CWD" rev-parse --absolute-git-dir 2>/dev/null)
 STATE_FILE="${GIT_DIR:-$CWD/project-planning}/handoff-last-shown"
 FINGERPRINT=$(printf '%s' "$LAST_ACTION" | cksum | cut -d' ' -f1)
 [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "$FINGERPRINT" ] && exit 0
@@ -57,7 +69,7 @@ NEXT_FIELD=$(echo "$LAST_ACTION" | grep -m1 "^next:" | sed 's/next:[[:space:]]*/
 # Open QA items survive every handoff: QA keeps them in each module's status.md "### Open items"
 OPEN_ITEMS=$(for f in "$CWD"/project-planning/modules/*/status.md; do
     [ -f "$f" ] || continue
-    n=$(awk '/^### Open items/{f=1; next} f && /^#/{exit} f && /^- \[ \]/' "$f" | wc -l | tr -d ' ')
+    n=$(awk '/^### Open items/{f=1; next} /^#/{f=0} f && /^- \[ \]/' "$f" | wc -l | tr -d ' ')
     [ "$n" -gt 0 ] && printf '%s (%s) ' "$(basename "$(dirname "$f")")" "$n"
 done)
 SCOPE_PY="$HOME/.claude/skills/engineer-checklist/scripts/module_scope.py"
@@ -72,16 +84,17 @@ fi
 # The latest entry starts at the last dated bullet ("- 2026-…" or "- **2026-…") or ### heading
 LAST_ENTRY=$(awk '/^## PM Updates/{f=1; next} f && /^## /{exit} f && (/^- (\*\*)?[0-9][0-9][0-9][0-9]-/ || /^### /){e=""} f{e=e $0 "\n"} END{printf "%s", e}' "$STATUS_FILE")
 ARCHITECTURAL=0
-echo "$LAST_ENTRY" | grep -q '\[ARCHITECTURAL\]' && ARCHITECTURAL=1
+echo "$LAST_ENTRY" | sed -n 1p | grep -q '\[ARCHITECTURAL\]' && ARCHITECTURAL=1
 
 # Modules that depend on the given module directory (module_scope.py reads the Module Map and specs)
 dependents_of() { python3 "$SCOPE_PY" dependents "$CWD" "$1" 2>/dev/null; }
 
 # Phase number of the checkpoint just recorded, and whether its Retrospective was declined
 CHECKPOINT_LINES=$(awk '/^## Checkpoint History/{f=1; next} f && /^## /{exit} f' "$STATUS_FILE")
-PHASE_DONE=$(echo "$CHECKPOINT_LINES" | grep -cE '^Phase [0-9]+ approved')
+PHASE_DONE=$(echo "$CHECKPOINT_LINES" | grep -oE 'Phase [0-9]+ approved' | tail -1 | grep -oE '[0-9]+')
 RETRO_SKIPPED=0
-echo "$CHECKPOINT_LINES" | grep -v '^[[:space:]]*$' | tail -2 | grep -qi 'retrospective: skipped' && RETRO_SKIPPED=1
+# Only lines after the latest "Phase N approved" belong to that checkpoint
+echo "$CHECKPOINT_LINES" | awk '/Phase [0-9]+ approved/{buf=""} {buf=buf $0 "\n"} END{printf "%s", buf}' | grep -qi 'retrospective: skipped' && RETRO_SKIPPED=1
 
 # For a QA repeat-failure: which ACs are escalated for the first time, which already have an open marker
 NEW=""; OPEN=""
@@ -98,13 +111,36 @@ esac
 # and the Engineer's own self-check result is not trusted for this.
 case "$AGENT" in
     engineer-*)
-        SCOPE_OUT=$(python3 "$SCOPE_PY" changed "$CWD" "${AGENT#engineer-}" 2>/dev/null); SCOPE_RC=$?
-        SCOPE_NOTES=$(echo "$SCOPE_OUT" | grep '^note:')
+        DIR="${AGENT#engineer-}"
+        PREV_FILE="${GIT_DIR:-$CWD/project-planning}/framework-engineer-$DIR"
+        # Remember what the Engineer was doing, so a later scope-fix can return to it
+        [ "${MODE%% *}" != "scope-fix" ] && [ -n "$GIT_DIR" ] && echo "${MODE%% *} $RESULT" > "$PREV_FILE"
+        if [ -z "$GIT_DIR" ]; then
+            SCOPE_NOTES="note: not a git repository — the hook's scope check for shell writes was skipped"
+            SCOPE_RC=0; SCOPE_OUT=""
+        else
+            SCOPE_OUT=$(python3 "$SCOPE_PY" changed "$CWD" "$DIR" 2>/dev/null); SCOPE_RC=$?
+            [ $SCOPE_RC -eq 3 ] && SCOPE_OUT="note: the Module Map has no Source Path column — the hook's scope check was skipped"
+        fi
+        [ -z "$SCOPE_NOTES" ] && SCOPE_NOTES=$(echo "$SCOPE_OUT" | grep '^note:')
         if [ $SCOPE_RC -eq 1 ]; then
             SCOPE_VIOLATION=1
             NEXT="Scope violation — files changed outside ${AGENT#engineer-}'s Source Path:
 $(echo "$SCOPE_OUT" | grep -v '^note:')
 Fix first: \`claude --agent $AGENT \"scope-fix\"\` — it undoes only those changes; the hook re-checks and then returns you to the step that was interrupted (if the work belongs to another module, it records blocked-technical instead)"
+        elif [ "${MODE%% *}" = "scope-fix" ] && [ "$RESULT" = "success" ]; then
+            # The hook decides where a clean scope-fix returns to; the Engineer's own next: is not used
+            read -r PREV_MODE PREV_RESULT < "${GIT_DIR:-$CWD/project-planning}/framework-engineer-$DIR" 2>/dev/null
+            case "$PREV_RESULT:$PREV_MODE" in
+                spec-issue:*)        NEXT="Scope is clean again. The interrupted run had stopped on a spec issue: \`claude --agent pm \"change: spec issue from $AGENT\"\`" ;;
+                blocked-technical:*) NEXT="Scope is clean again. The interrupted run had a cross-module blocker: \`claude --agent tech-lead \"engineer blocker in $DIR\"\`" ;;
+                blocked-dependency:*) NEXT="Scope is clean again. The interrupted run was waiting on a dependency — finish that module first (see Phase Plan)" ;;
+                needs-human:*)       NEXT="Scope is clean again. The interrupted run was waiting on you — see Engineering Progress, then \`claude --agent $AGENT\`" ;;
+                *:bugfix)            NEXT="Scope is clean again. Resume: \`claude --agent qa-$DIR \"regression\"\`"; MODE_FOR_DEPS=bugfix ;;
+                *:integration-fix)   NEXT="Scope is clean again. Resume: \`claude --agent qa-$DIR \"integration-fix-verify INT-ID\"\` (the ID from integration-review.md)" ;;
+                *:spec-update)       NEXT="Scope is clean again. Resume: \`claude --agent qa-$DIR \"verify\"\` (the ACs Doc-Sync changed)" ;;
+                *)                   NEXT="Scope is clean again. Resume: \`claude --agent qa-$DIR \"verify\"\`" ;;
+            esac
         elif [ $SCOPE_RC -eq 2 ]; then
             SCOPE_VIOLATION=1
             NEXT="${AGENT#engineer-} has no row in the status.md Module Map, so it has no Source Path. \`claude --agent pm \"change: add ${AGENT#engineer-} to the Module Map\"\` before it builds anything"
@@ -177,7 +213,7 @@ esac
             success)
                 case "$MODE" in
                     bugfix*)          NEXT="\`claude --agent qa-$SLUG \"regression\"\`" ;;
-                    scope-fix*)       NEXT="Scope is clean again. Resume where $SLUG was: \`claude --agent qa-$SLUG \"verify\"\` after implement, \`\"regression\"\` after a bugfix, or \`\"integration-fix-verify INT-ID\"\` after an integration fix" ;;
+                    spec-update*)     NEXT="\`claude --agent qa-$SLUG \"verify\"\` — check the acceptance criteria Doc-Sync changed (see the latest Sync Report) and re-run the rest for regressions" ;;
                     integration-fix*) NEXT="\`claude --agent qa-$SLUG \"integration-fix-verify INT-ID\"\` (the ID from integration-review.md)" ;;
                     *)                NEXT="\`claude --agent qa-$SLUG \"verify\"\`" ;;
                 esac ;;
@@ -232,7 +268,7 @@ esac
 
 # Blast-radius after a bugfix to a module others depend on (integration fixes get it before the fix,
 # via record-decisions, so they are not repeated here)
-case "$AGENT:$RESULT:$MODE" in
+case "$AGENT:$RESULT:${MODE_FOR_DEPS:-$MODE}" in
     engineer-*:success:bugfix*)
         [ -n "$SCOPE_VIOLATION" ] && DEPS="" || DEPS=$(dependents_of "${AGENT#engineer-}")
         if [ -n "$DEPS" ] && ! echo "$NEXT" | grep -q "blast-radius"; then
@@ -258,7 +294,7 @@ Next → $NEXT"
 [ -n "$SCOPE_NOTES" ] && MSG="$MSG
 $SCOPE_NOTES"
 [ -n "$OPEN_ITEMS" ] && MSG="$MSG
-Open QA items still waiting: ${OPEN_ITEMS% } — each module's status.md \"### Open items\" lists them; they go back to that module's Engineer once the step above is done"
+Open QA items still waiting: ${OPEN_ITEMS% } — listed under \"### Open items\" in each module's status.md. Once the step above is done: bugs-found items go to that module's Engineer (\"bugfix\"); repeat-failure and setup-drift items go to Tech Lead"
 
 # Warn if the agent left anything uncommitted (source code and generated agents included)
 UNCOMMITTED=$(git -C "$CWD" status --porcelain 2>/dev/null)

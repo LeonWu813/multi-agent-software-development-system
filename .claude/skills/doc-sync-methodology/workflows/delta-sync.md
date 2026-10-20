@@ -10,7 +10,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
 
 1. **Read the change description from status.md PM Updates section**
 
-   Find the last `## Sync Reports` entry, then read **every** `## PM Updates` entry dated after it — PM may have logged several changes (for example a change, then a revision after Tech Lead's review) before you run. Sync all of them, oldest first. For each entry, understand:
+   Find the last `## Sync Reports` entry and its `PM Update reference` — the last PM Updates entry it synced. Read **every** `## PM Updates` entry after that one, by position in the section (not by date — same-day entries are common). PM may have logged several changes (for example a change, then a revision after Tech Lead's review) before you run. Sync all of them, in the order they appear. For each entry, understand:
    - What specifically changed in prd.md
    - Why it was tagged [SUBSTANTIVE]
    - Which sections of prd.md were modified (look for references to module IDs, US-IDs, AC numbers, or named sections)

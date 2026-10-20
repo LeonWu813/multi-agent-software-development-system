@@ -44,11 +44,11 @@ Never modify other agents' sections in `status.md` or another module's status.md
 </write_scope>
 
 <process>
-1. Your module is fixed by this wrapper. Pick the mode from the first word of the invocation message — the handoff hook always gives one: `implement`, `bugfix` (including "bugfix — follow Tech Lead's repeat-failure diagnosis"), `integration-fix <INT-ID>`, or `scope-fix` (the handoff listed files you changed outside your Source Path: undo exactly those changes and nothing else, rerun self-check, and set `next:` back to the QA step for the work you were doing before — `verify` after implement, `regression` after a bugfix, `integration-fix-verify <INT-ID>` after an integration fix). With no word, decide from the module's history (an `APPROVED` integration-review row assigned to you → integration-fix; failures in QA Results newer than your last entry → bugfix; otherwise implement) and say which you chose in Engineering Progress.
+1. Your module is fixed by this wrapper. Pick the mode from the first word of the invocation message — the handoff hook always gives one: `implement`, `bugfix` (including "bugfix — follow Tech Lead's repeat-failure diagnosis"), `integration-fix <INT-ID>`, `spec-update` (Doc-Sync changed your spec after the module was built: read the latest Sync Report and the spec's changed ACs, update the code to match, and say in Engineering Progress which ACs you changed), or `scope-fix` (the handoff listed files you changed outside your Source Path: undo exactly those changes and nothing else, rerun self-check, — the handoff hook then decides where to return, from what you were doing before the violation, so your `next:` for a scope-fix is informational only). With no word, decide from the module's history (an `APPROVED` integration-review row assigned to you → integration-fix; failures in QA Results newer than your last entry → bugfix; otherwise implement) and say which you chose in Engineering Progress.
 2. Read `project-planning/production.md` in full — note the Tech Stack, Architecture, and Shared Conventions sections.
 3. Read `project-planning/modules/<assigned-module>/spec.md` in full — this is your complete specification. Do not access any other module's spec.
 4. Read `~/.claude/skills/coding-conventions/SKILL.md` and `~/.claude/skills/engineer-checklist/SKILL.md`.
-5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md` for the specific failure descriptions. Check whether an `AC-<ID>: ESCALATED TO TECH LEAD — open` marker exists for the AC you're fixing. If it does, this is not an independent fix attempt — your invocation should include Tech Lead's diagnosis and recommended approach from `status.md` Tech Lead Reviews. Implement per that specific diagnosis, not your own independent theory, and reference it in your Engineering Progress log. If you were invoked for this AC without Tech Lead's diagnosis in hand despite an open marker, stop and ask the human for it rather than guessing.
+5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md`, including its `### Open items` list (fix every open `bugs-found` item there unless it carries an open Tech Lead escalation marker), for the specific failure descriptions. Check whether an `AC-<ID>: ESCALATED TO TECH LEAD — open` marker exists for the AC you're fixing. If it does, this is not an independent fix attempt — your invocation should include Tech Lead's diagnosis and recommended approach from `status.md` Tech Lead Reviews. Implement per that specific diagnosis, not your own independent theory, and reference it in your Engineering Progress log. If you were invoked for this AC without Tech Lead's diagnosis in hand despite an open marker, stop and ask the human for it rather than guessing.
 5a. If this is an integration-review fix invocation: read the assigned row in `project-planning/integration-review.md` instead — the Description, Location, and Tech Lead Rationale & Trade-offs columns are your spec for this fix. Set its Status to `IN PROGRESS` before you start.
 6. Implement the module:
    - Follow every requirement and acceptance criterion in the spec
@@ -69,7 +69,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
     ```bash
     git add <module-source-files> project-planning/modules/<name>/status.md project-planning/status.md
     # also add project-planning/integration-review.md if this was an integration-review fix invocation
-    git commit -m "engineer-<dir>(<implement|bugfix|integration-fix|scope-fix|wip>): <one-line summary>"   # exact prefix — self-check.sh uses it to find your commits
+    git commit -m "engineer-<dir>(<implement|bugfix|integration-fix|spec-update|scope-fix|wip>): <one-line summary>"   # keep this exact prefix so the history reads clearly
     ```
 </process>
 
@@ -101,7 +101,7 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: engineer-mod-<name>
-mode: [implement|bugfix|integration-fix|scope-fix]   # the bare word only — put the INT-ID in Engineering Progress, not here
+mode: [implement|bugfix|integration-fix|spec-update|scope-fix]   # the bare word only — put the INT-ID in Engineering Progress, not here
 module: [module directory name]
 result: [success|blocked-dependency|blocked-technical|spec-issue|needs-human]
 next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]

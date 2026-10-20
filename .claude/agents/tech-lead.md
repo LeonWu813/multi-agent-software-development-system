@@ -183,7 +183,7 @@ Triggered when QA reports the same AC failing a 3rd time after two targeted Engi
    Root-cause layer: <layer, with the evidence that confirms it — or state what evidence is still missing>
    Recommended approach: <what Engineer should do differently this time>
    ```
-4. **On first invocation for this AC**, write the escalation marker to `project-planning/modules/<mod>/status.md`: `AC-<ID>: ESCALATED TO TECH LEAD — open`. This is the only line you may add to a module's `status.md`, and only here.
+4. **On the first invocation for this AC since its last marker was resolved** (or ever), write the escalation marker. When QA escalates several ACs at once, write one marker per AC and one combined `### Repeat-Failure Review — AC-004, AC-008 — <date>` entry, with a section per AC. Write the escalation marker to `project-planning/modules/<mod>/status.md`: `AC-<ID>: ESCALATED TO TECH LEAD — open`. This is the only line you may add to a module's `status.md`, and only here.
 5. **You stay the owner of this AC until it resolves.** While the marker is open, every subsequent QA failure on this same AC routes back to you, not to another independent Engineer-QA round — there is no new 3-strike count after the first escalation. Each time you're re-invoked for it, repeat steps 1–3 against the new failure.
 6. Update the Last Action block in `status.md`.
 7. Commit:

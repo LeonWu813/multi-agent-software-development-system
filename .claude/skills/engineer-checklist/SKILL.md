@@ -76,7 +76,7 @@ Manually verified by Engineer:
 1. `scripts/self-check.sh <module-name> <project-root>`
 2. Verify each item in <judgment_items>
 3. Log all results to status.md Engineering Progress
-4. Commit: `git add <Source Path files> project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "engineer-<dir>(<implement|bugfix|integration-fix>): <summary>"`
+4. Commit: `git add <Source Path files> project-planning/modules/<dir>/status.md project-planning/status.md && git commit -m "engineer-<dir>(<implement|bugfix|integration-fix|spec-update|scope-fix|wip>): <summary>"`
 </quick_start>
 
 <success_criteria>

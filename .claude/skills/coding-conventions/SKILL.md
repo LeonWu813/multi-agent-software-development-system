@@ -50,9 +50,9 @@ Define default coding conventions that all engineers follow. Defaults apply when
 </testing>
 
 <commit_messages>
-Every commit an agent makes — code commits included — starts with its agent-role prefix. Plain conventional-commit types (`feat(auth): …`, `fix(api): …`) are not used by agents: the scope checks attribute each change by its prefix, so an unprefixed commit is counted against the Engineer who runs next. The human prefixes manual commits `human: …`.
+Every commit an agent makes — code commits included — starts with its agent-role prefix. Plain conventional-commit types (`feat(auth): …`, `fix(api): …`) are not used by agents: the history should say who did what. The scope check uses a base point the handoff hook records at every handoff, and leaves out files changed only by `human: …` or `coordinator(…)` commits, so start manual commits with `human: …`.
 - Format: agent-name(module-or-mode): description
-- Examples: `engineer-mod-login(implement): session token validation`, `qa-mod-login: pass — all 8 ACs verified`, `pm(init): draft PRD for payment service`. Engineers must keep the exact `engineer-<dir>(<mode>):` prefix — `self-check.sh` uses it to find the module's own commits
+- Examples: `engineer-mod-login(implement): session token validation`, `qa-mod-login: pass — all 8 ACs verified`, `pm(init): draft PRD for payment service`. Engineers keep the exact `engineer-<dir>(<mode>):` prefix so the history reads clearly; the scope check itself uses the handoff hook's recorded base, not commit messages
 - Agent-role prefixes for every agent commit (no plain conventional-commit types like `feat(x):` from agents)
 </commit_messages>
 

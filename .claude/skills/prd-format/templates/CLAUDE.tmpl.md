@@ -41,7 +41,7 @@ Never call Edit, Write, or MultiEdit on any artifact in the table above outside 
 
 **Every PM tag goes through Doc-Sync.** After PM records `[INIT]`, `[SUBSTANTIVE]`, or `[TRIVIAL]` — trivial included — the next agent is `doc-sync` (after Tech Lead, if the change is architectural), before any Engineer or QA run. Never tell PM or the human to skip it, and never substitute an instruction to an Engineer for a spec update: the Engineer and QA work from `spec.md`, so a change that isn't synced isn't built or tested.
 
-**Commit prefixes.** Every agent commit starts with its agent-role prefix; the scope check attributes changes by it. When the human commits by hand, the message starts `human: …`, so the work is not counted against the next Engineer.
+**Commit prefixes.** Every agent commit starts with its agent-role prefix. Your own commits (applying a Retrospective proposal, editing this file, pstack output) start `coordinator(<what>): …` — `pstack(<skill>): …` for pstack output — and the human's manual commits start `human: …`. The scope check records its own base at every handoff, so prefixes don't decide what an Engineer is blamed for; but files changed only by `coordinator(`, `pstack(` or `human:` commits are left out of the next Engineer's check.
 
 **Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Give the human the owning agent's command, with your diagnosis and the exact location of the problem.
 

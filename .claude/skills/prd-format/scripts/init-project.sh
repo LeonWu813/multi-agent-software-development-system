@@ -129,14 +129,15 @@ Test:
 ## Module Map
 
 <!-- Filled by PM at finalize, after the user confirms directory names and source paths.
-     Source Path is the code this module owns: the Engineer's write scope, the self-check
+     Source Path is the code this module owns (folders, files, or filename patterns such as
+     supabase/migrations/*_mod_003_* when one folder holds several modules' files): the Engineer's write scope, the self-check
      boundary, and what pstack-guard.sh enforces. Shared code belongs to exactly one module.
      Format:
      | MOD-ID  | Directory        | Module Name    | Source Path              |
      |---------|------------------|----------------|--------------------------|
      | MOD-001 | mod-login        | User Login     | src/login/               |
-     No two Source Paths may overlap or nest (src/ and src/ui/ cannot both appear). If it
-     happens anyway, the scope check treats the longest matching path as the owner.
+     Source Paths should not overlap or nest (src/ and src/ui/). Where one folder holds several
+     modules' files, use filename patterns; the most specific match owns each file.
 
      Project files are root-level files no single module's code lives in (manifests,
      lockfiles, .env.example, CI config). One module owns them all; its Engineer is the only

@@ -114,7 +114,8 @@ if [ "$FRAMEWORK" = "1" ]; then
             REASON=$(python3 "$SCOPE" check "$STATUS" "$DIR" "$REL" 2>/dev/null); RC=$?
             case "$RC" in
                 0|3) exit 0 ;;  # in scope, or an older Module Map without Source Paths
-                2)   block "$AGENT has no row in the status.md Module Map, so it has no write scope. PM must add the module (directory + Source Path) first." ;;
+                2)   [ "$REL" = "project-planning/status.md" ] && exit 0  # its Last Action, so the hook can route it to PM
+                     block "$AGENT has no row in the status.md Module Map, so it has no write scope. PM must add the module (directory + Source Path) first." ;;
                 *)   block "$AGENT may not write $REL — ${REASON:-outside its scope}. If the fix needs code another module owns, record a blocked-technical blocker for Tech Lead." ;;
             esac ;;
     esac
