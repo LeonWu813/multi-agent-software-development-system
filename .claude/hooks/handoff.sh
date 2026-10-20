@@ -240,6 +240,9 @@ case "$AGENT:$RESULT" in
     pm:success)
         if [ "${MODE%% *}" = "checkpoint" ] && [ -f "$CWD/.claude/skills/verify/SKILL.md" ] && ! echo "$NEXT" | grep -q "maintain-verification-skill"; then
             NEXT="First the coordinator refreshes the verify skill with /pstack:maintain-verification-skill (with your OK). Then: $NEXT"
+        fi
+        if [ "${MODE%% *}" = "checkpoint" ] && ! echo "$NEXT" | grep -q "retrospective"; then
+            NEXT="$NEXT Optional: a short Retrospective on the phase just closed — \`claude --agent retrospective \"phase PHASE_NUMBER\"\`."
         fi ;;
 esac
 

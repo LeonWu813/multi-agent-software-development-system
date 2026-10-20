@@ -149,6 +149,7 @@ You run as a direct session (`claude --agent pm`), so you talk to the user yours
    git commit -m "pm(checkpoint): phase <N> approved"
    git tag checkpoint-<N>   # rollback point; the human pushes it with git push --tags
    ```
+7a. Ask the user: "Run a short Retrospective on phase <N> now?" It reads only this phase and writes proposals; nothing changes until the user applies one. If yes, include `claude --agent retrospective "phase <N>"` in `next:` before the next phase's first Engineer. If no, note it in Checkpoint History (`retrospective: skipped`).
 8. Tell the user the next step: run `claude --agent engineer-mod-<name>` for the first module of the new Current Phase (module specs for every phase already exist from the initial sync — Doc-Sync only runs again after a tagged PRD change), or note project completion.
 
 </modes>

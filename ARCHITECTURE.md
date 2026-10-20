@@ -211,6 +211,7 @@ Every agent that writes a Last Action block (all but Retrospective) always recor
 - **Write Scope**: `project-planning/retrospective/` only (`proposed-changes.md` and `drafts/<name>.proposal.md`)
 - **Skills Used**: none
 - **Invocation**: **manual only** — the human runs `claude --agent retrospective` when they want it; its description tells Claude never to invoke it automatically. It writes no Last Action block, and `handoff.sh` has no Retrospective branch, so no hook message follows it
+- **Two scopes**: `phase <N>` — offered by PM at every checkpoint ("Run a short Retrospective on phase N now?"), reads only that phase's entries and `git log checkpoint-<N-1>..checkpoint-<N>`, writes `phase-<N>-*.proposal.md` drafts; whole project — after the final checkpoint, skipping evidence earlier phase drafts already cover. A declined offer is noted in Checkpoint History as `retrospective: skipped`. The hook adds the optional `claude --agent retrospective "phase PHASE_NUMBER"` command to every checkpoint message.
 - **Input**: project-level `status.md` (Skill Recommendations as primary input, Tech Lead Reviews, PM Updates) + all `modules/*/status.md` files + current skill and agent files (read-only) + user feedback
 - **Output**: One proposal per candidate in `drafts/` (Evidence, Proposed Change, Target File, Impact, Risk) + a summary in `proposed-changes.md`, ordered by impact
 - **Handoff**: Always to the human, who reviews `proposed-changes.md` and selectively applies approved proposals
@@ -1436,3 +1437,17 @@ To start a new project:
 cd ~/projects/my-new-app
 claude --agent pm
 ```
+
+---
+
+## Parked Ideas
+
+Considered and deliberately not built. Revisit when the stated condition changes.
+
+### Running modules in parallel (parked)
+
+- **What it would give**: two or more Engineers building independent modules at the same time (e.g. `mod-feed` and `mod-profile` once their shared dependency has passed QA).
+- **Why it doesn't work today**: one `## Last Action` block in `status.md` (parallel sessions overwrite each other's handoff), one working tree (each Engineer's self-check would flag the other's files, and commits could sweep them up), and one `status.md` both sessions edit.
+- **What it would take**: a Last Action block per module in `modules/<dir>/status.md` (the hook already receives the stopping agent's name, so it can pick the right block); one git worktree and branch per parallel module, merged back after QA; a rule that only modules whose dependencies have all passed may run in parallel.
+- **Revisit when**: a phase has several independent modules and the human actually wants to run agents side by side. Until then it adds a merge step to every module and saves nothing.
+

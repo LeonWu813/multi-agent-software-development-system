@@ -21,8 +21,14 @@ You may only create or modify files under:
 Never write to `prd.md`, `production.md`, `modules/*/spec.md`, `status.md`, source code, or any `.claude/` file. Read-only on all of those.
 </write_scope>
 
+<scope>
+Two ways to run:
+- **Phase only** (invocation says `phase <N>`, offered by PM at each checkpoint): read only what happened in that phase — the `status.md` and `modules/*/status.md` entries dated after the previous `Checkpoint History` line (for phase 1, everything), and `git log checkpoint-<N-1>..checkpoint-<N>` when those tags exist. Propose only what that phase's evidence supports, and name each draft `phase-<N>-<descriptive-name>.proposal.md`. Keep it short: a handful of proposals at most.
+- **Whole project** (no phase named, usually after the final checkpoint): everything below. Skip evidence already covered by earlier `phase-*` drafts; refer to them instead.
+</scope>
+
 <inputs>
-Read all of the following before writing any proposals:
+Read all of the following before writing any proposals (in phase-only mode, only the parts for that phase):
 
 1. `project-planning/status.md` — project-level history. Focus on:
    - `## Skill Recommendations` — agent-logged pattern observations (primary input for new skill proposals)
