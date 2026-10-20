@@ -61,7 +61,7 @@ Some handoffs need a pstack review skill run first. Agents never start other age
 |---|---|---|---|
 | PM `change` with architectural impact | `/pstack:how` on the code the change affects | `project-planning/pstack-findings/<date>-how-<topic>.md` | `claude --agent tech-lead` (change review) |
 | QA pass on the last module of a phase | `/pstack:thermos` on the phase's changes: diff from the last Checkpoint History commit (phase 1: the `doc-sync(initial)` commit) to HEAD, limited to the phase's Source Paths | `project-planning/pstack-findings/<date>-thermos-phase-<N>.md` | `claude --agent tech-lead` (integration review) |
-| An approved integration-review fix changes code another module depends on | `/pstack:blast-radius` on the planned fix. Any probe script goes in a scratch directory outside the project; skip its `arena` step | `project-planning/pstack-findings/<date>-blast-radius-<INT-ID>.md` | `tech-lead` if the risks change the plan, otherwise `engineer-mod-<name> "integration-fix <INT-ID>"` |
+| An approved integration-review fix changes code another module depends on | `/pstack:blast-radius` on the planned fix. Any probe script goes in a scratch directory outside the project; skip its `arena` step | `project-planning/pstack-findings/<date>-blast-radius-<INT-ID>.md` | risks change the plan: `claude --agent tech-lead "on-demand review of <INT-ID> blast-radius"`; otherwise `claude --agent engineer-<module> "integration-fix <INT-ID>"` |
 | QA `repeat-failure`, **first escalation of that AC only** | `/pstack:how` and `/pstack:why` on the failing path | `project-planning/pstack-findings/<date>-how-why-<AC-ID>.md` | `claude --agent tech-lead` (repeat-failure review) |
 | Phase 1, once the app runs, no `.claude/skills/verify/` yet — **only if the human says yes** | `/pstack:create-verification-skill` | `.claude/skills/verify/` | the next agent as usual; QA uses `verify` from then on |
 
@@ -71,7 +71,7 @@ PM runs `pstack:sharpen` itself at the start of init — it is not a coordinator
 
 - A pstack step produces a findings file (or, in the last row, the verify skill) and nothing else. You never act on what it finds: no edit to code, `prd.md`, specs, or `status.md`, even when the skill offers a patch or the fix looks obvious. The finding goes to Tech Lead or the named owner, the human decides, and the owner makes the change.
 - After each step, run `git status`. If anything changed outside `project-planning/pstack-findings/` (and `.claude/skills/verify/` for the last row), stop and tell the human exactly what changed. Do not revert or commit it yourself.
-- Commit the findings file before the next agent runs: `git add project-planning/pstack-findings/ && git commit -m "pstack(<skill>): <topic>"`.
+- Commit the output before the next agent runs: `git add project-planning/pstack-findings/ && git commit -m "pstack(<skill>): <topic>"` — and for the verify skill, `git add .claude/skills/verify/ && git commit -m "pstack(create-verification-skill): verify skill"`. Uncommitted output shows up in every agent's self-check and handoff warning.
 
 ### pstack skills you never run on owned artifacts
 
@@ -79,5 +79,5 @@ PM runs `pstack:sharpen` itself at the start of init — it is not a coordinator
 
 ### What enforces this
 
-- The `pstack-guard.sh` hook blocks an agent from calling any skill outside its allowlist, and blocks every non-framework subagent (pstack's reviewers) from writing project files with Write, Edit, MultiEdit, or NotebookEdit anywhere except `project-planning/pstack-findings/`.
+- The `pstack-guard.sh` hook blocks: an agent calling any skill outside its allowlist; any agent writing under `~/.claude`; any agent but PM changing the status.md Module Map; an Engineer writing outside its module's Source Path and project files (or editing its own spec); and every non-framework subagent (pstack's reviewers) writing project files anywhere except `project-planning/pstack-findings/`.
 - The hook does not see your own session or shell commands — the `git status` check above covers those.

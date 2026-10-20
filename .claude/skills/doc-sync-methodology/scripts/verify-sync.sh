@@ -128,6 +128,8 @@ if [[ ! -d "$MODULES_DIR" ]]; then
 else
   while IFS= read -r spec_file; do
     dir_name=$(basename "$(dirname "$spec_file")")
+    # A removed module keeps its spec for history (delta-sync step 6) — not an orphan
+    grep -q '\[REMOVED IN PRD REVISION' "$spec_file" 2>/dev/null && continue
     in_map=$(dir_in_module_map "$dir_name")
     if [[ "$in_map" != "1" ]]; then
       echo "  ORPHAN: $spec_file — directory '$dir_name' has no entry in status.md Module Map"
@@ -234,7 +236,7 @@ else
       found=0
       while IFS= read -r spec_file; do
         # Extract only the ## Related User Stories section of each spec
-        section=$(awk '/^## Related User Stories/,/^## /' "$spec_file" 2>/dev/null)
+        section=$(awk '/^## Related User Stories/{f=1; next} f && /^## /{exit} f' "$spec_file" 2>/dev/null)
         if echo "$section" | grep -q "$us_id"; then
           found=1
           break
@@ -306,61 +308,19 @@ if [[ ! -f "$STATUS" ]]; then
   fail "Check 6: status.md does not exist at $STATUS"
 else
   CHECK6_FAILED=0
-  IN_PHASES_PRD=0
-  PHASE_NAMES=""
-
-  # Extract phase names from prd.md Phases / Milestones section
-  while IFS= read -r line; do
-    if echo "$line" | grep -qi '##\+.*phase\|##\+.*milestone'; then
-      IN_PHASES_PRD=1
-      continue
-    fi
-    if [[ $IN_PHASES_PRD -eq 1 ]] && echo "$line" | grep -q '^##'; then
-      if ! echo "$line" | grep -qi 'phase\|milestone'; then
-        IN_PHASES_PRD=0
-        continue
-      fi
-    fi
-    if [[ $IN_PHASES_PRD -eq 1 ]]; then
-      # Look for lines that name a phase: "Phase 1", "Phase One", "Milestone:", bold entries, etc.
-      if echo "$line" | grep -qi 'phase[[:space:]]*[0-9a-zA-Z]\|milestone[[:space:]]*[0-9a-zA-Z]\|^\s*[-*]\s*\*\*'; then
-        # Extract the meaningful part (strip markdown bullets and bold markers)
-        phase_name=$(echo "$line" | sed 's/^[[:space:]]*[-*]\?[[:space:]]*//' \
-                                  | sed 's/\*\*//g' \
-                                  | sed 's/|//g' \
-                                  | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-                                  | cut -c1-50)
-        if [[ -n "$phase_name" ]] && [[ ${#phase_name} -gt 3 ]]; then
-          PHASE_NAMES="${PHASE_NAMES}
-${phase_name}"
-        fi
-      fi
-    fi
-  done < "$PRD"
+  # Phase names = the "### Phase N: Name" headings inside prd.md's "## ... Phases" section
+  PHASE_NAMES=$(awk '
+    /^## / { inphases = (tolower($0) ~ /phase|milestone/); next }
+    inphases && /^###+[[:space:]]*[Pp]hase/ {
+      sub(/^###+[[:space:]]*/, ""); sub(/[[:space:]]+$/, ""); print substr($0, 1, 50)
+    }' "$PRD")
 
   if [[ -z "$PHASE_NAMES" ]]; then
     pass "Check 6: No phase names found in prd.md Phases section (nothing to verify)"
   else
     # Check that status.md Phase Plan section contains each phase name
-    IN_PHASE_PLAN_STATUS=0
-    PHASE_PLAN_CONTENT=""
-
-    while IFS= read -r line; do
-      if echo "$line" | grep -qi '##\+.*phase.plan\|##\+.*phase plan'; then
-        IN_PHASE_PLAN_STATUS=1
-        continue
-      fi
-      if [[ $IN_PHASE_PLAN_STATUS -eq 1 ]] && echo "$line" | grep -q '^##'; then
-        if ! echo "$line" | grep -qi 'phase.plan\|phase plan'; then
-          IN_PHASE_PLAN_STATUS=0
-          continue
-        fi
-      fi
-      if [[ $IN_PHASE_PLAN_STATUS -eq 1 ]]; then
-        PHASE_PLAN_CONTENT="${PHASE_PLAN_CONTENT}
-${line}"
-      fi
-    done < "$STATUS"
+    # The Phase Plan section runs until the next level-2 heading; ### Phase lines stay inside it
+    PHASE_PLAN_CONTENT=$(awk '/^## Phase Plan/{f=1; next} f && /^## /{exit} f' "$STATUS")
 
     if [[ -z "$PHASE_PLAN_CONTENT" ]]; then
       fail "Check 6: status.md has no Phase Plan section (or it is empty)"

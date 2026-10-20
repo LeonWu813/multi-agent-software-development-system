@@ -38,7 +38,7 @@ Check the following:
 1. Every port number in `project-planning/setup.md` matches the host port in `docker-compose.yml`
 2. Every environment variable referenced in `setup.md` exists in `.env.example`
 
-If a mismatch is found, log it as a FAIL — this is an infrastructure documentation issue, not a spec issue. Route to Engineer (update `setup.md` to match what was actually implemented).
+If a mismatch is found, log it as a FAIL — this is an infrastructure documentation issue, not a spec issue. `setup.md` and `docker-compose.yml` belong to Tech Lead: record Last Action `result: setup-drift` (when no AC failed for another reason) so the hook routes the human to Tech Lead. A missing variable in `.env.example` goes to the project files owner's Engineer (Module Map `Project files:` line) instead.
 
 Example failure entry:
 ```

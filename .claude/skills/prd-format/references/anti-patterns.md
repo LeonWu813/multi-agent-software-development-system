@@ -207,27 +207,27 @@ Dependencies: MOD-001 (Authentication)
 
 ---
 
-## 9. Dropping Human-Gate Conditions When Composing Sub-Agent Prompts
+## 9. Dropping Human-Gate Conditions When Handing Off to the Next Agent
 
-**What it is**: When an orchestrating agent (or conversation) composes an invocation prompt for a sub-agent, it may summarize or simplify the preceding agent's handoff output — and in doing so silently drop human-gate prerequisites that the preceding agent stated explicitly.
+**What it is**: When the coordinator (or the human) writes the message that starts the next agent, it may summarize or simplify the preceding agent's handoff output — and in doing so silently drop human-gate prerequisites that the preceding agent stated explicitly.
 
 **Bad**:
 ```
 Tech Lead output: "Before the PM tags [INIT], the user must complete setup.md and confirm the smoke check passes."
-Orchestrator composes PM prompt as: "Resolve the Tech Lead conditions and tag [INIT]."
+Coordinator tells the human to start PM with: "Resolve the Tech Lead conditions and tag [INIT]."
 Result: PM tags [INIT] without the setup gate being satisfied — the gate was never forwarded.
 ```
 
 **Good**:
 ```
 Tech Lead output: "Before the PM tags [INIT], the user must complete setup.md and confirm the smoke check passes."
-Orchestrator surfaces this to the user explicitly: "The Tech Lead requires you to complete setup.md before [INIT] can be tagged. Once done, confirm here."
-User confirms setup → orchestrator invokes PM with setup confirmation included.
+Coordinator surfaces this to the user explicitly: "The Tech Lead requires you to complete setup.md before [INIT] can be tagged. Once done, confirm here."
+User completes setup → `claude --agent tech-lead "Setup is complete"` records the confirmation → only then `claude --agent pm "finalize"`.
 ```
 
-**Why it matters**: Human-gate instructions exist precisely because the system cannot verify them automatically. When an orchestrator drops them, the gate disappears entirely — the sub-agent never knew it existed and cannot enforce something it was not told about. The failure mode is silent: everything appears to proceed normally, but a required verification was skipped.
+**Why it matters**: Human-gate instructions exist precisely because the system cannot verify them automatically. When the coordinator drops them, the gate disappears entirely — the next agent never knew it existed and cannot enforce something it was not told about. The failure mode is silent: everything appears to proceed normally, but a required verification was skipped.
 
-**Correct pattern**: Every human-gate condition stated by one agent must be surfaced to the user before the next agent is invoked. The user is the gate-keeper; the orchestrator is not permitted to decide the gate has been met by implication.
+**Correct pattern**: Every human-gate condition stated by one agent must be surfaced to the user before the next agent is invoked. The user is the gate-keeper; the coordinator is not permitted to decide the gate has been met by implication.
 
 **Enforcement in this skill**: The setup gate is owned by the Tech Lead agent, not the PM. The Tech Lead creates `setup.md`, instructs the user to complete it and re-invoke Tech Lead, and records a Setup Confirmation entry in `status.md` when setup is verified. The PM then checks `status.md` for this confirmation entry before tagging [INIT] — checking an objective record rather than asking the user a yes/no question that can be bypassed. Neither agent can proceed without the other's gate being satisfied.
 

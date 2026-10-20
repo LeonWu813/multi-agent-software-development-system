@@ -1,6 +1,8 @@
 # Regression Test Workflow
 
-Re-verification after a bug fix. Use this workflow — not the functional-test workflow — when an Engineer has returned a module after fixing a reported bug.
+Re-verification after a bug fix (`regression`) or an integration-review fix (`integration-fix-verify <INT-ID>`). Use this workflow — not the functional-test workflow — when an Engineer has returned a module after a fix.
+
+For an integration-review fix, read the assigned row in `project-planning/integration-review.md` instead of a QA Results entry: its Description and Location are the failure scenario to reproduce, and on success you set the row to `QA VERIFIED` (or back to `APPROVED` with a note).
 
 The goal is two-fold: confirm the original bug is gone, and confirm nothing else broke in the process.
 
@@ -10,7 +12,7 @@ The goal is two-fold: confirm the original bug is gone, and confirm nothing else
 
 ### 1. Read the original bug description from status.md
 
-Open `status.md` and find the **QA Results** section from the previous QA run. Locate the specific failure entry that triggered this fix. Extract:
+Open `project-planning/modules/<dir>/status.md` and find the **QA Results** section from the previous QA run. Locate the specific failure entry that triggered this fix. Extract:
 
 - The exact `FAIL AC-NNN` line that was reported
 - The exact `Input=`, `Actual=`, and `Expected=` values recorded
@@ -29,7 +31,10 @@ Reproduce the original failure scenario exactly:
 
 If the original scenario now produces the expected output: the bug is fixed. Record: `REGRESSION PASS AC-NNN: original failure scenario resolved`.
 
-If the original scenario still fails: the fix did not work. Record the new `FAIL` entry with updated `Input=`, `Actual=`, `Expected=` and route back to Engineer.
+If the original scenario still fails: the fix did not work. Record the new `FAIL` entry with updated `Input=`, `Actual=`, `Expected=`. Before routing it, run the repeat-failure check from your agent instructions (qa.md step 9a):
+- An `AC-NNN: ESCALATED TO TECH LEAD — open` line for this AC in the module's status.md → route to Tech Lead (`result: repeat-failure`, `ac: AC-NNN`), never to Engineer.
+- No marker, and this is the 3rd failure of this AC across your QA Results → route to Tech Lead the same way.
+- Otherwise → route back to Engineer (`result: bugs-found`).
 
 Do not assume the fix worked because the Engineer says it did. Verify independently.
 

@@ -17,8 +17,9 @@ no black box. A human reviews and approves every handoff.
 Each agent does one job, sees only the files its role needs, and commits its work
 to git before stopping. The human runs every agent directly as its own session
 (`claude --agent <name>`), so agents can ask the human questions; no agent starts
-another. A `Stop` hook then prints the exact `claude --agent <name>` command to run
-next — and the human decides whether to run it. The default Claude Code session acts
+another. A `Stop` hook then prints the exact command to run next, ready to paste
+(`claude --agent <name> "<start word>"`, e.g. `claude --agent qa-mod-login "verify"`) —
+and the human decides whether to run it. The default Claude Code session acts
 as a coordinator: it tells the human which agent to run and runs the pstack review
 steps (saved to `project-planning/pstack-findings/`) that Tech Lead reads, but never
 edits an owned file itself. Every handoff is an atomic git commit, so any step can be
@@ -84,16 +85,19 @@ makes them produce correct software reliably. Four ideas do most of the work:
 |-------|----------------|-----------|
 | **PM** | Owns the PRD and all user communication | `prd.md`, its `status.md` sections, final `README.md` |
 | **Doc-Sync** | Translates the PRD into downstream specs; generates per-module Engineer/QA agents | `production.md`, module specs and status files, generated agents |
-| **Tech Lead** | Architectural advisory: feasibility, risks, setup runbook, phase-end integration review | `status.md` (reviews), `setup.md`, `integration-review.md` |
-| **Engineer** | Implements one assigned module | its module's Source Path, its own module status |
+| **Tech Lead** | Architectural advisory: feasibility, risks, setup runbook, phase-end integration review | `status.md` (reviews), `setup.md` and infrastructure files, `integration-review.md` |
+| **Engineer** | Implements one assigned module | its module's Source Path, the root project files if its module owns them, its own module status |
 | **QA** | Verifies one module against its spec | its module's QA results |
 | **Retrospective** | Proposes system improvements from project history (manual only) | `retrospective/` proposals |
 
 Engineer and QA are base templates (in `.claude/agent-templates/`); Doc-Sync generates
 a thin per-module wrapper for each (`engineer-mod-<name>`, `qa-mod-<name>`), hard-coding
-which module spec, Source Path, and dependencies that instance may use. A
-`PreToolUse` hook enforces each agent's skill allowlist and keeps each Engineer's
-writes inside its module's Source Path.
+which module spec, Source Path, and dependencies that instance may use. Source Paths
+never overlap, and one module owns the root project files (manifests, lockfiles,
+`.env.example`, CI config). A `PreToolUse` hook enforces each agent's skill allowlist,
+keeps each Engineer's writes inside its module's scope (the same rules `self-check.sh`
+uses), lets only PM change the Module Map, and blocks every agent from writing under
+`~/.claude`.
 
 ---
 
@@ -110,9 +114,10 @@ chmod +x ~/.claude/hooks/*.sh
 # Merge the entries in .claude/hooks/settings-hooks.json into the "hooks" key of
 # ~/.claude/settings.json (Claude Code does not load a standalone hooks.json)
 # This registers handoff.sh (next-step messages, on Stop/SubagentStop) and
-# pstack-guard.sh (on PreToolUse: skill allowlists, Engineer Source Path, read-only
-# pstack reviewers). Both need jq. Optional: install the pstack plugin for the review
-# steps listed under "Required pstack steps" in the scaffolded CLAUDE.md.
+# pstack-guard.sh (on PreToolUse: skill allowlists, Engineer write scope, Module Map and
+# ~/.claude protection, read-only pstack reviewers). Both need jq; pstack-guard.sh also
+# needs python3. Optional: install the pstack plugin for the review steps listed under
+# "Required pstack steps" in the scaffolded CLAUDE.md.
 
 # Start a new project
 cd ~/projects/my-new-app
@@ -121,7 +126,7 @@ claude --agent pm
 
 From there, follow the command each hook prints, approving each handoff. Run each
 agent yourself in its own session — don't have the default session start agents as
-subagents. Restart Claude Code after Doc-Sync generates new per-module agents so they load.
+subagents. Open a new terminal after Doc-Sync generates new per-module agents so they load.
 
 ---
 
@@ -132,7 +137,7 @@ subagents. Restart Claude Code after Doc-Sync generates new per-module agents so
 ├── agents/           # PM, Doc-Sync, Tech Lead, Retrospective (+ generated per-module wrappers in each project)
 ├── agent-templates/  # Engineer and QA base templates Doc-Sync builds the wrappers from
 ├── skills/           # Reusable knowledge: router SKILL.md + workflows/references/templates/scripts
-└── hooks/            # handoff.sh (next command), pstack-guard.sh (allowlists, write scope), settings-hooks.json
+└── hooks/            # handoff.sh (next command), pstack-guard.sh (allowlists, write scope, Module Map), settings-hooks.json
 ARCHITECTURE.md  # Full design spec — the deep dive
 ```
 

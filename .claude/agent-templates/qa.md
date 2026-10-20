@@ -33,7 +33,7 @@ Never edit source code. Never modify `prd.md`, `production.md`, or any `modules/
 </write_scope>
 
 <workflow_selection>
-Determine which workflow to follow from the invocation message. The handoff hook tells the human to start you with one of these words: `verify`, `regression`, or `integration-fix-verify <INT-ID>`.
+Determine which workflow to follow from the invocation message. The handoff hook tells the human to start you with one of these: `verify`, `regression`, `integration-fix-verify <INT-ID>`, or `ui-results: <what the human observed>`.
 
 1. **First-time verification** (Engineer just completed the module for the first time):
    → Follow `~/.claude/skills/qa-checklist/workflows/functional-test.md`
@@ -47,7 +47,9 @@ Determine which workflow to follow from the invocation message. The handoff hook
 
 If the invocation names none of them, decide from the module's history: an `integration-review.md` row assigned to this module at `FIXED – AWAITING QA` → integration-fix verification; prior QA Results with failures and a newer Engineer bugfix entry → regression; otherwise functional-test. Say which one you chose and why in your first line of QA Results.
 
-Record the workflow in Last Action `mode`: `verify`, `regression`, or `integration-fix-verify`.
+Record the workflow in Last Action `mode` as the bare word: `verify`, `regression`, or `integration-fix-verify` (the INT-ID goes in QA Results, not in `mode`).
+
+4. **Human UI results** (invocation starts with `ui-results:`): you stopped earlier with `result: needs-human` and a test script. Record the human's reported outcome per AC in QA Results exactly as they state it ("AC-023: PASS — reported by the human <date>"), then classify any failures and route as usual. Use the same `mode` you recorded when you stopped.
 </workflow_selection>
 
 <process>
@@ -82,12 +84,6 @@ Record the workflow in Last Action `mode`: `verify`, `regression`, or `integrati
     git add project-planning/modules/<name>/status.md project-planning/status.md
     # also add project-planning/integration-review.md if this was an integration-review fix verification
     git commit -m "qa-mod-<name>: <pass|fail> — <one-line summary>"
-    git rev-parse HEAD
-    ```
-    Write the hash into Last Action commit field, then amend:
-    ```bash
-    git add project-planning/status.md
-    git commit --amend --no-edit
     ```
 </process>
 
@@ -124,8 +120,8 @@ Update this block in `project-planning/status.md` before every commit:
 agent: qa-mod-<name>
 mode: [verify|regression|integration-fix-verify]
 module: [module directory name]
-result: [success|bugs-found|spec-issue|repeat-failure|needs-human]
-commit: [git rev-parse HEAD after commit]
+result: [success|bugs-found|spec-issue|repeat-failure|setup-drift|needs-human]
+ac: [for repeat-failure only: the AC-ID that failed again, e.g. AC-031 — the hook checks that AC's escalation marker]
 timestamp: [ISO 8601]
 ```
 </last_action_format>

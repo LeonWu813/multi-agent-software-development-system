@@ -10,16 +10,10 @@ Run this when re-invoked to close out one or more items in `project-planning/int
 3. Read the module's `status.md` Engineering Progress and QA Results to see what Engineer changed and how QA verified it.
 4. If genuinely resolved: update the row's status to `CONFIRMED CLOSED` and add a one-line note on how it was verified.
 5. If not actually resolved (the underlying issue still reproduces, or the fix only addressed a symptom): set status back to `APPROVED` with a note explaining what's still wrong, and tell the human it needs another Engineer pass — do not close it to avoid friction.
-6. Update the Last Action block in `status.md`.
+6. Update the Last Action block in `status.md`: `mode: confirm-fix`, `result: success`.
 7. Commit:
    ```bash
    git add project-planning/integration-review.md project-planning/status.md
-   git commit -m "tech-lead(integration-review): confirm <ID> closed"
-   git rev-parse HEAD
-   ```
-   Write the hash into Last Action, then amend:
-   ```bash
-   git add project-planning/status.md
-   git commit --amend --no-edit
+   git commit -m "tech-lead(confirm-fix): <ID> closed"
    ```
 8. Tell the human the outcome. If this was the last open item for the phase, note that PM's checkpoint is now unblocked.

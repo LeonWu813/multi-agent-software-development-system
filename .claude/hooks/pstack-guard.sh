@@ -4,23 +4,37 @@
 #
 # 1. Skill calls from framework agents must be on that agent's allowlist. The Skill tool is
 #    all-or-nothing, so this hook is what limits each agent to its own skills.
-# 2. An engineer-mod-* agent may write only its module's Source Path (status.md Module Map)
-#    and its own planning files.
-# 3. Subagents that are not framework agents (pstack reviewers run as general-purpose,
-#    pstack:effort-*, pstack:thermo-*) may write only under project-planning/pstack-findings/
-#    or outside the project. pstack steps deliver findings; owners make the changes.
+# 2. No agent may write under ~/.claude (hooks, skills, agent definitions).
+# 3. Only PM may change the status.md Module Map, so no agent can widen its own scope.
+# 4. An engineer-* agent may write only its module's Source Path, the project files it owns,
+#    and its own planning files (rules in engineer-checklist/scripts/module_scope.py).
+# 5. Subagents that are not framework agents (pstack reviewers run as general-purpose,
+#    pstack:effort-*, pstack:thermo-*) may write in the project only under
+#    project-planning/pstack-findings/.
 #
 # Main-session calls carry no agent_type and are not blocked here; CLAUDE.md governs them.
 # Exit 2 blocks the call and shows stderr to the agent as the reason.
 
 INPUT=$(cat)
+SCOPE="$HOME/.claude/skills/engineer-checklist/scripts/module_scope.py"
+
+block() { echo "Blocked by pstack-guard: $1" >&2; exit 2; }
 
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
 [ -z "$CWD" ] && CWD="$(pwd)"
-# Resolve the project root, so a session that ran `cd src` is still guarded
+ORIG_CWD="$CWD"
+# Resolve the project root from any subdirectory (git or not)
 ROOT=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)
-[ -n "$ROOT" ] && [ -f "$ROOT/project-planning/status.md" ] && CWD="$ROOT"
-[ -f "$CWD/project-planning/status.md" ] || exit 0  # not a dev-team-agent project
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/project-planning/status.md" ]; then
+    ROOT=""; d="$CWD"
+    while [ -n "$d" ] && [ "$d" != "/" ]; do
+        [ -f "$d/project-planning/status.md" ] && { ROOT="$d"; break; }
+        d=$(dirname "$d")
+    done
+fi
+[ -n "$ROOT" ] || exit 0  # not a dev-team-agent project
+CWD="$ROOT"
+STATUS="$CWD/project-planning/status.md"
 
 AGENT=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null)
 [ -z "$AGENT" ] && exit 0
@@ -28,11 +42,11 @@ AGENT=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)
 
 case "$AGENT" in
-    pm)                      ALLOWED="prd-format pstack:sharpen pstack:unslop pstack:technical-writing" ;;
-    engineer-mod-*)          ALLOWED="coding-conventions engineer-checklist pstack:tdd pstack:deslop pstack:typescript-best-practices" ;;
-    qa-mod-*)                ALLOWED="qa-checklist verify" ;;
-    tech-lead|doc-sync|retrospective) ALLOWED="" ;;
-    *)                       ALLOWED="*" ;;  # not a framework agent
+    pm)              ALLOWED="prd-format pstack:sharpen pstack:unslop pstack:technical-writing"; FRAMEWORK=1 ;;
+    engineer-*)      ALLOWED="coding-conventions engineer-checklist pstack:tdd pstack:deslop pstack:typescript-best-practices"; FRAMEWORK=1 ;;
+    qa-*)            ALLOWED="qa-checklist verify"; FRAMEWORK=1 ;;
+    tech-lead|doc-sync|retrospective) ALLOWED=""; FRAMEWORK=1 ;;
+    *)               ALLOWED="*"; FRAMEWORK=0 ;;  # not a framework agent
 esac
 
 if [ "$TOOL" = "Skill" ]; then
@@ -41,50 +55,66 @@ if [ "$TOOL" = "Skill" ]; then
     for s in $ALLOWED; do
         [ "$SKILL" = "$s" ] && exit 0
     done
-    echo "Blocked by pstack-guard: $AGENT may not use the skill '$SKILL'. Allowed for $AGENT: ${ALLOWED:-none}. If you need something outside your skills, record it as a blocker or note for the human instead." >&2
-    exit 2
+    block "$AGENT may not use the skill '$SKILL'. Allowed for $AGENT: ${ALLOWED:-none}. If you need something outside your skills, record it as a blocker or note for the human instead."
 fi
 
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' 2>/dev/null)
 [ -z "$FILE" ] && exit 0
-ORIG_CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
-case "$FILE" in /*) ;; *) FILE="${ORIG_CWD:-$CWD}/$FILE" ;; esac
-REAL_FILE=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$FILE" 2>/dev/null || echo "$FILE")
-REAL_CWD=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$CWD" 2>/dev/null || echo "$CWD")
-
-# Engineers may write only their module's Source Path (Module Map) and their own planning files.
-# Other framework agents keep their prompt-defined write scopes.
-case "$AGENT" in
-    engineer-mod-*)
-        DIR="${AGENT#engineer-}"
-        REL="${REAL_FILE#"$REAL_CWD"/}"
-        [ "$REL" = "$REAL_FILE" ] && exit 0  # outside the project
-        case "$REL" in
-            "project-planning/modules/$DIR/"*|project-planning/status.md|project-planning/integration-review.md) exit 0 ;;
-        esac
-        SOURCE_PATHS=$(awk -F'|' -v dir="$DIR" '
-            /^## Module Map/ {inmap=1; next}
-            inmap && /^## / {exit}
-            inmap && /^\|/ {
-              d=$3; gsub(/^[ \t]+|[ \t]+$/, "", d); gsub(/\/$/, "", d)
-              if (d == dir) { sp=$5; gsub(/^[ \t]+|[ \t]+$/, "", sp); print sp; exit }
-            }' "$CWD/project-planning/status.md" 2>/dev/null)
-        [ -z "$SOURCE_PATHS" ] && exit 0  # no Source Path recorded (older project) — prompt rules only
-        IFS=',' read -ra PATHS <<< "$SOURCE_PATHS"
-        for sp in "${PATHS[@]}"; do
-            sp="${sp#"${sp%%[![:space:]]*}"}"; sp="${sp%"${sp##*[![:space:]]}"}"; sp="${sp#./}"; sp="${sp%/}"
-            [ -n "$sp" ] && { [ "$REL" = "$sp" ] || [[ "$REL" == "$sp/"* ]]; } && exit 0
-        done
-        echo "Blocked by pstack-guard: $AGENT may write only its Source Path ($SOURCE_PATHS) and its own planning files, not $REL. If the fix needs another module's code, record a blocked-technical blocker for Tech Lead." >&2
-        exit 2 ;;
-esac
-[ "$ALLOWED" != "*" ] && exit 0
+case "$FILE" in /*) ;; *) FILE="$ORIG_CWD/$FILE" ;; esac
+realpath_of() { python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1" 2>/dev/null || echo "$1"; }
+REAL_FILE=$(realpath_of "$FILE")
+REAL_CWD=$(realpath_of "$CWD")
+REAL_HOME_CLAUDE=$(realpath_of "$HOME/.claude")
 
 case "$REAL_FILE" in
-    "$REAL_CWD"/project-planning/pstack-findings/*) exit 0 ;;
-    "$REAL_CWD"/*) ;;
+    "$REAL_HOME_CLAUDE"|"$REAL_HOME_CLAUDE"/*) block "$AGENT may not write under ~/.claude ($FILE). Framework files change only on the human's explicit instruction, in the coordinator session." ;;
+esac
+
+case "$REAL_FILE" in
+    "$REAL_CWD"/*) REL="${REAL_FILE#"$REAL_CWD"/}" ;;
     *) exit 0 ;;  # outside the project (scratch files, probe scripts)
 esac
 
-echo "Blocked by pstack-guard: $AGENT is not a framework agent and may not change files in this project ($FILE). Write findings to project-planning/pstack-findings/ instead — the owning agent makes the change." >&2
-exit 2
+# Only PM may change the Module Map
+if [ "$REL" = "project-planning/status.md" ] && [ "$AGENT" != "pm" ]; then
+    CHANGED=$(printf '%s' "$INPUT" | python3 -c '
+import json, re, sys
+data = json.load(sys.stdin)
+path, tool, ti = sys.argv[1], data.get("tool_name"), data.get("tool_input", {})
+try:
+    old = open(path, encoding="utf-8").read()
+except OSError:
+    old = ""
+new = old
+if tool == "Write":
+    new = ti.get("content", "")
+else:
+    for e in (ti.get("edits") or [ti]):
+        a, b = e.get("old_string", ""), e.get("new_string", "")
+        new = new.replace(a, b) if e.get("replace_all") else new.replace(a, b, 1)
+def module_map(t):
+    m = re.search(r"^## Module Map\s*\n(.*?)(?=^## |\Z)", t, re.S | re.M)
+    return m.group(1).strip() if m else ""
+print("1" if module_map(old) != module_map(new) else "0")
+' "$STATUS" 2>/dev/null)
+    [ "$CHANGED" = "1" ] && block "$AGENT may not change the status.md Module Map — only PM changes module ownership, through a PRD change."
+fi
+
+if [ "$FRAMEWORK" = "1" ]; then
+    case "$AGENT" in
+        engineer-*)
+            DIR="${AGENT#engineer-}"
+            REASON=$(python3 "$SCOPE" check "$STATUS" "$DIR" "$REL" 2>/dev/null); RC=$?
+            case "$RC" in
+                0|3) exit 0 ;;  # in scope, or an older Module Map without Source Paths
+                2)   block "$AGENT has no row in the status.md Module Map, so it has no write scope. PM must add the module (directory + Source Path) first." ;;
+                *)   block "$AGENT may not write $REL — ${REASON:-outside its scope}. If the fix needs code another module owns, record a blocked-technical blocker for Tech Lead." ;;
+            esac ;;
+    esac
+    exit 0  # other framework agents keep their prompt-defined write scopes
+fi
+
+case "$REL" in
+    project-planning/pstack-findings/*) exit 0 ;;
+esac
+block "$AGENT is not a framework agent and may not change files in this project ($FILE). Write findings to project-planning/pstack-findings/ instead — the owning agent makes the change."

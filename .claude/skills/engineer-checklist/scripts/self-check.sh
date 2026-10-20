@@ -24,6 +24,25 @@ if [[ ! -d "$MODULE_DIR" ]]; then
   exit 1
 fi
 
+# Snapshot the changes BEFORE build and test run, so their output (caches, bytecode,
+# coverage) is never mistaken for the engineer's work. The snapshot covers uncommitted
+# and untracked files plus every file changed by this module's own commits since the
+# last commit that was not this engineer's (so committed out-of-scope work is caught too).
+SCOPE_SNAPSHOT=""
+if git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
+  BASE=""
+  while IFS='|' read -r sha subject; do
+    case "$subject" in
+      "engineer-$MODULE_NAME("*|"engineer-$MODULE_NAME:"*) continue ;;
+      *) BASE="$sha"; break ;;
+    esac
+  done < <(git -C "$PROJECT_ROOT" log --format='%H|%s' -n 200 2>/dev/null)
+  COMMITTED=""
+  [[ -n "$BASE" ]] && COMMITTED=$(git -C "$PROJECT_ROOT" diff --name-only "$BASE" HEAD 2>/dev/null)
+  UNCOMMITTED=$(git -C "$PROJECT_ROOT" status --porcelain --untracked-files=all 2>/dev/null | sed -E 's/^.{3}//; s/^.* -> //')
+  SCOPE_SNAPSHOT=$(printf '%s\n%s\n' "$COMMITTED" "$UNCOMMITTED" | sed '/^$/d' | sort -u)
+fi
+
 PASS_COUNT=0
 FAIL_COUNT=0
 FAILURES=()
@@ -127,43 +146,27 @@ echo "--- Checking git scope for module: $MODULE_NAME"
 if ! git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
   skip "Git scope — $PROJECT_ROOT is not a git repository"
 else
-  # The module's Source Path comes from the Module Map row whose Directory is this module
+  # Scope rules (Source Path, project files, nesting) live in module_scope.py, shared with pstack-guard.sh
   STATUS_MD="$PROJECT_ROOT/project-planning/status.md"
-  SOURCE_PATHS=$(awk -F'|' -v dir="$MODULE_NAME" '
-    /^## Module Map/ {inmap=1; next}
-    inmap && /^## / {exit}
-    inmap && /^\|/ {
-      d=$3; gsub(/^[ \t]+|[ \t]+$/, "", d); gsub(/\/$/, "", d)
-      if (d == dir) { sp=$5; gsub(/^[ \t]+|[ \t]+$/, "", sp); print sp; exit }
-    }' "$STATUS_MD" 2>/dev/null)
-
-  # Tracked changes and untracked files, one path per line (renames report the new path)
-  CHANGED_FILES=$(git -C "$PROJECT_ROOT" status --porcelain --untracked-files=all 2>/dev/null | sed -E 's/^.{3}//; s/^.* -> //')
+  SCOPE_PY="$(cd "$(dirname "$0")" && pwd)/module_scope.py"
+  SOURCE_PATHS=$(python3 "$SCOPE_PY" paths "$STATUS_MD" "$MODULE_NAME" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')
+  CHANGED_FILES="$SCOPE_SNAPSHOT"   # taken at the start of the script, before build and test
 
   if [[ -z "$SOURCE_PATHS" ]]; then
     skip "Git scope — no Source Path for $MODULE_NAME in the status.md Module Map (add the column at PM finalize)"
   elif [[ -z "$CHANGED_FILES" ]]; then
-    skip "Git scope — no uncommitted changes detected (all changes already committed)"
+    skip "Git scope — no changes found for $MODULE_NAME (nothing uncommitted, no engineer-$MODULE_NAME commits on top)"
   else
     OUT_OF_SCOPE=""
     while IFS= read -r filepath; do
       [[ -z "$filepath" ]] && continue
-      allowed=0
-      case "$filepath" in
-        "project-planning/modules/$MODULE_NAME/"*|project-planning/status.md|project-planning/integration-review.md) allowed=1 ;;
-      esac
-      IFS=',' read -ra paths <<< "$SOURCE_PATHS"
-      for sp in "${paths[@]}"; do
-        sp="${sp#"${sp%%[![:space:]]*}"}"; sp="${sp%"${sp##*[![:space:]]}"}"; sp="${sp#./}"; sp="${sp%/}"
-        [[ -n "$sp" && ( "$filepath" == "$sp" || "$filepath" == "$sp/"* ) ]] && allowed=1
-      done
-      [[ $allowed -eq 0 ]] && OUT_OF_SCOPE+="  $filepath"$'\n'
+      reason=$(python3 "$SCOPE_PY" check "$STATUS_MD" "$MODULE_NAME" "$filepath" 2>/dev/null) || OUT_OF_SCOPE+="  $filepath${reason:+ — $reason}"$'\n'
     done <<< "$CHANGED_FILES"
 
     if [[ -z "$OUT_OF_SCOPE" ]]; then
-      pass "Git scope — all changes are within $MODULE_NAME's Source Path ($SOURCE_PATHS) or its planning files"
+      pass "Git scope — all changes are within $MODULE_NAME's scope ($SOURCE_PATHS, plus its planning files)"
     else
-      fail "Git scope — changes outside $MODULE_NAME's Source Path ($SOURCE_PATHS):"
+      fail "Git scope — changes outside $MODULE_NAME's scope ($SOURCE_PATHS):"
       printf "%s" "$OUT_OF_SCOPE"
     fi
   fi

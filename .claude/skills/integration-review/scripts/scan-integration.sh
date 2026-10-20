@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -o pipefail   # no -e or -u: this is a lead list and must always reach the end (bash 3.2 errors on empty arrays under -u)
 
 # ---------------------------------------------------------------------------
 # scan-integration.sh
@@ -26,7 +26,44 @@ echo ""
 # ---------------------------------------------------------------------------
 # 1. Module directories from the Module Map in status.md
 # ---------------------------------------------------------------------------
-MODULE_DIRS=$(grep -oE '\| mod-[a-z0-9-]+' "$STATUS_MD" | tr -d '| ' | sort -u || true)
+# Rows of the Module Map table only (comments and the Format example are skipped).
+# Columns: | MOD-ID | Directory | Module Name | Source Path |
+MAP_ROWS=$(awk -F'|' '
+  /^## Module Map/ {inmap=1; next}
+  inmap && /^## / {exit}
+  inmap && /<!--/ {incomment=1}
+  inmap && incomment { if (/-->/) incomment=0; next }
+  inmap && /^\|/ {
+    d=$3; sp=$5
+    gsub(/[`[:space:]]/, "", d); sub(/^modules\//, "", d); sub(/\/$/, "", d)
+    gsub(/`/, "", sp); gsub(/^[[:space:]]+|[[:space:]]+$/, "", sp)
+    if (d != "" && d != "Directory" && d !~ /^-+$/) print d "\t" sp
+  }' "$STATUS_MD")
+MODULE_DIRS=$(printf '%s\n' "$MAP_ROWS" | cut -f1 | sed '/^$/d' | sort -u)
+
+# Source roots to scan: every Source Path in the Module Map, or src/ if none are recorded
+SCAN_ROOTS=()
+while IFS= read -r sp; do
+  IFS=',' read -ra parts <<< "$sp"
+  for part in "${parts[@]}"; do
+    part="${part#"${part%%[![:space:]]*}"}"; part="${part%"${part##*[![:space:]]}"}"; part="${part#./}"
+    [[ -n "$part" && -e "$PROJECT_ROOT/$part" ]] && SCAN_ROOTS+=("$PROJECT_ROOT/$part")
+  done
+done < <(printf '%s\n' "$MAP_ROWS" | cut -f2)
+[[ ${#SCAN_ROOTS[@]} -eq 0 && -d "$PROJECT_ROOT/src" ]] && SCAN_ROOTS=("$PROJECT_ROOT/src")
+# Drop roots nested inside another root, so no file is scanned (and counted) twice
+if [[ ${#SCAN_ROOTS[@]} -gt 1 ]]; then
+  KEPT=()
+  for r in "${SCAN_ROOTS[@]}"; do
+    r="${r%/}"; nested=0
+    for o in "${SCAN_ROOTS[@]}"; do
+      o="${o%/}"
+      [[ "$r" != "$o" && "$r" == "$o/"* ]] && nested=1
+    done
+    [[ $nested -eq 0 ]] && KEPT+=("$r")
+  done
+  SCAN_ROOTS=($(printf '%s\n' "${KEPT[@]}" | sort -u))
+fi
 
 if [[ -z "$MODULE_DIRS" ]]; then
   echo "No module directories found in status.md Module Map — nothing to scan."
@@ -74,10 +111,15 @@ echo ""
 # 4. Duplicate route/endpoint string literals across module source directories
 # ---------------------------------------------------------------------------
 echo "--- Possible duplicate route/endpoint definitions ---"
-if command -v grep >/dev/null 2>&1; then
-  grep -rnoE "(\.get|\.post|\.put|\.delete|\.route)\(['\"][a-zA-Z0-9/_-]+['\"]" \
-    --include="*.ts" --include="*.tsx" --include="*.js" --include="*.py" \
-    "$PROJECT_ROOT/src" 2>/dev/null | sort | uniq -c | sort -rn | awk '$1 > 1' | head -20 || true
+ROUTE_RE="(\.get|\.post|\.put|\.patch|\.delete|\.route)\(['\"][a-zA-Z0-9/_:{}-]+['\"]"
+if [[ ${#SCAN_ROOTS[@]} -gt 0 ]]; then
+  # Count each route literal across all files (no file prefix), then list where duplicates live
+  grep -rhoE "$ROUTE_RE" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.py" \
+    "${SCAN_ROOTS[@]}" 2>/dev/null | sort | uniq -d | head -20 | while IFS= read -r route; do
+      echo "  DUPLICATE: $route"
+      grep -rlF "$route" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.py" \
+        "${SCAN_ROOTS[@]}" 2>/dev/null | sort -u | sed "s#^$PROJECT_ROOT/#    #"
+    done
 fi
 echo ""
 
@@ -89,17 +131,17 @@ echo "--- Module purposes (eyeball for overlapping domains — e.g. two modules 
 for dir in $MODULE_DIRS; do
   SPEC="$PROJECT_ROOT/project-planning/modules/$dir/spec.md"
   [[ -f "$SPEC" ]] || continue
-  PURPOSE=$(awk '/^## Purpose/{flag=1; next} /^## /{flag=0} flag' "$SPEC" | grep -v '^<!--' | grep -v '^$' | head -1)
+  PURPOSE=$(awk '/^## Purpose/{flag=1; next} /^## /{flag=0} flag' "$SPEC" | grep -v '^<!--' | grep -v '^$' | head -1 || true)
   [[ -n "$PURPOSE" ]] && echo "  $dir: $PURPOSE"
 done
 echo ""
 
 echo "--- Possible duplicate component/function names across module source directories ---"
-if [[ -d "$PROJECT_ROOT/src" ]]; then
-  grep -rhoE "(export (default )?(function|const|class) )[A-Za-z0-9_]+" \
+if [[ ${#SCAN_ROOTS[@]} -gt 0 ]]; then
+  grep -rhoE "(export (default )?(function|const|class) |^def |^class )[A-Za-z0-9_]+" \
     --include="*.ts" --include="*.tsx" --include="*.js" --include="*.py" \
-    "$PROJECT_ROOT/src" 2>/dev/null | \
-    sed -E 's/.*(function|const|class) //' | sort | uniq -c | sort -rn | awk '$1 > 1' | head -20 || true
+    "${SCAN_ROOTS[@]}" 2>/dev/null | \
+    sed -E 's/.*(function|const|class|def) //' | sort | uniq -c | sort -rn | awk '$1 > 1' | head -20 || true
 fi
 echo ""
 

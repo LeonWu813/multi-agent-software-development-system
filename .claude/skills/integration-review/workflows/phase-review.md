@@ -13,6 +13,7 @@ Run this the first time Tech Lead is invoked for a phase — i.e. all modules in
 5. Work through `references/cross-module-checklist.md` for conflicts and information leakage — current-phase modules only.
 6. Work through `references/optimization-criteria.md` for optimization opportunities — **this check is not phase-scoped**. Duplication has no phase boundary: a module shipped two phases ago can duplicate logic with a module in this phase just as easily as two modules in the same phase can. Read the Purpose + Tech Stack lines (cheap — a few lines each) from every module's `spec.md` shipped so far, not just the current phase, and only deep-read the full spec/code of modules the scan or the Purpose comparison flags as suspiciously similar. Skip anything that fails the criteria in `references/optimization-criteria.md` — do not log speculative or stylistic suggestions. Note: this reactive check is the safety net — most duplication should already have been proposed by Tech Lead at spec time, before engineering started (see the Module Breakdown review step in `tech-lead.md`'s init-review process). Finding something here suggests that earlier check missed it, not that this is the primary mechanism.
 7. If `project-planning/integration-review.md` does not exist yet, create it from `templates/integration-review.tmpl.md`.
+7a. **Carry forward DEFERRED rows.** For every row still `DEFERRED` from an earlier phase, add a line to this phase's review listing its ID and asking the human to decide it again. Do not change the old row's status — `record-decisions` does that when the human answers.
 8. For each finding, append a row with: next available ID, category, description, specific location (file + line or component), your rationale and trade-offs, status `PROPOSED`, and the module(s) involved. Leave Assigned Module blank — it is filled when you record the human's approval (`workflows/record-decisions.md`), never before.
 9. If you find nothing, still write a row with Status `NO ISSUES` and Description "No issues found — phase <N> reviewed <date>", so PM's checkpoint gate has something to find. Record Last Action `result: clean`; otherwise `result: issues-found`.
 10. Write a short summary to `status.md` Tech Lead Reviews:
@@ -21,16 +22,10 @@ Run this the first time Tech Lead is invoked for a phase — i.e. all modules in
     Reviewed: <module list>
     Findings: <count> Concerns, <count> Recommendations (see project-planning/integration-review.md)
     ```
-11. Update the Last Action block in `status.md`.
+11. Update the Last Action block in `status.md`: `mode: integration-review`, `result: clean` or `issues-found`.
 12. Commit:
     ```bash
     git add project-planning/integration-review.md project-planning/status.md
     git commit -m "tech-lead(integration-review): phase <N> — <count> concerns, <count> recommendations"
-    git rev-parse HEAD
     ```
-    Write the hash into Last Action, then amend:
-    ```bash
-    git add project-planning/status.md
-    git commit --amend --no-edit
-    ```
-13. Tell the human: "Integration & Optimization Review complete for phase <N>. <count> Concerns (must resolve before checkpoint), <count> Recommendations (optional) in `project-planning/integration-review.md`. Decide which to approve — approved items get routed to the owning module's engineer."
+13. Tell the human: "Integration & Optimization Review complete for phase <N>: <count> Concerns, <count> Recommendations, <count> carried-forward DEFERRED rows in `project-planning/integration-review.md`. Every row needs your decision — approve, reject, or defer — before PM's checkpoint, Recommendations included. Tell me with: `claude --agent tech-lead \"decisions: INT-001 approve, INT-002 reject, ...\"`."

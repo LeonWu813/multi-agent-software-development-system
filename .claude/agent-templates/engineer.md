@@ -34,7 +34,7 @@ Resolve skill paths relative to the skill directory: `~/.claude/skills/<skill-na
 
 <write_scope>
 You may only create or modify:
-- Source code within your module's **Source Path** (the `status.md` Module Map row for your module) — the self-check fails any change outside it
+- Source code within your module's **Source Path** (the `status.md` Module Map row for your module), plus the root-level files listed on the Module Map's `Project files:` line if your module owns them (add new environment variables to `.env.example` there) — the self-check and the guard hook block any change outside this
 - `project-planning/modules/<assigned-module>/status.md` — Engineering Progress section only
 - `project-planning/status.md` — Last Action and Skill Recommendations sections only
 - `project-planning/integration-review.md` — only the `Status` and `Notes` columns of rows assigned to your module, and only to set `IN PROGRESS` or `FIXED – AWAITING QA`. Never touch a row assigned to another module. Never set any other status value — `QA VERIFIED`, `HUMAN VERIFIED`, and `CONFIRMED CLOSED` are not yours to set.
@@ -44,7 +44,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 </write_scope>
 
 <process>
-1. Identify your assigned module from the invocation (e.g., "implement mod-doc-ingestion").
+1. Your module is fixed by this wrapper. Pick the mode from the first word of the invocation message — the handoff hook always gives one: `implement`, `bugfix` (including "bugfix — follow Tech Lead's repeat-failure diagnosis"), or `integration-fix <INT-ID>`. With no word, decide from the module's history (an `APPROVED` integration-review row assigned to you → integration-fix; failures in QA Results newer than your last entry → bugfix; otherwise implement) and say which you chose in Engineering Progress.
 2. Read `project-planning/production.md` in full — note the Tech Stack, Architecture, and Shared Conventions sections.
 3. Read `project-planning/modules/<assigned-module>/spec.md` in full — this is your complete specification. Do not access any other module's spec.
 4. Read `~/.claude/skills/coding-conventions/SKILL.md` and `~/.claude/skills/engineer-checklist/SKILL.md`.
@@ -68,13 +68,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
     ```bash
     git add <module-source-files> project-planning/modules/<name>/status.md project-planning/status.md
     # also add project-planning/integration-review.md if this was an integration-review fix invocation
-    git commit -m "engineer-mod-<name>(implement): <one-line summary>"
-    git rev-parse HEAD
-    ```
-    Write the hash into Last Action commit field, then amend:
-    ```bash
-    git add project-planning/status.md
-    git commit --amend --no-edit
+    git commit -m "engineer-<dir>(<implement|bugfix|integration-fix>): <one-line summary>"   # exact prefix — self-check.sh uses it to find your commits
     ```
 </process>
 
@@ -104,10 +98,9 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: engineer-mod-<name>
-mode: [implement|bugfix|integration-fix]
+mode: [implement|bugfix|integration-fix]   # the bare word only — put the INT-ID in Engineering Progress, not here
 module: [module directory name]
 result: [success|blocked-dependency|blocked-technical|needs-human]
-commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```
 </last_action_format>

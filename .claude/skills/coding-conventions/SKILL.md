@@ -56,8 +56,8 @@ Define default coding conventions that all engineers follow. Defaults apply when
 
 **Orchestration commits** (agent handoff commits made before stopping) use agent-role types defined by the system architecture — these are a parallel convention, not conventional commit types:
 - Format: agent-name(module-or-mode): description
-- Examples: `engineer(mod-login): implement session token validation`, `qa(mod-login): pass — all 8 ACs verified`, `pm(init): initial PRD for payment service`
-- Use conventional commits for code-level changes within a module; use agent-role types for the handoff commit that signals a workflow transition
+- Examples: `engineer-mod-login(implement): session token validation`, `qa-mod-login: pass — all 8 ACs verified`, `pm(init): draft PRD for payment service`. Engineers must keep the exact `engineer-<dir>(<mode>):` prefix — `self-check.sh` uses it to find the module's own commits
+- Agent-role prefixes for every agent commit (no plain conventional-commit types like `feat(x):` from agents)
 </commit_messages>
 
 </conventions>
@@ -72,6 +72,6 @@ Define default coding conventions that all engineers follow. Defaults apply when
 <success_criteria>
 - Code passes linter configured in production.md
 - All naming, error handling, logging, and testing conventions followed
-- Commit message follows conventional commits format
+- Every commit an agent makes uses its agent-role prefix above — Engineers included, for every code commit, so `self-check.sh` can find the module's own commits
 - engineer-checklist self-check passes
 </success_criteria>

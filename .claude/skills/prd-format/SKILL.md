@@ -63,7 +63,7 @@ Run this checklist on the complete PRD before every handoff. Every item must pas
 **If this is the initial creation (finalization — ready for Doc-Sync handoff)**
 - [ ] PM Updates entry tagged `[INIT]` in `status.md`
 - [ ] Build Config populated in `status.md`
-- [ ] Module Map populated in `status.md` with all MOD-IDs, directory names, module names, and source paths (no source path claimed by two modules)
+- [ ] Module Map populated in `status.md` with all MOD-IDs, directory names, module names, and source paths (no source path claimed by two modules, none nested inside another), plus a `Project files:` line naming one owner module
 - [ ] Phase Plan section in `status.md` is left blank — Doc-Sync populates it during the initial sync; PM must not pre-fill it
 - [ ] Current Phase section in `status.md` is left blank — same reason as above
 - [ ] `## Skill Recommendations` section is present in `status.md` (scaffold creates it; PM must not remove it)
@@ -133,17 +133,20 @@ These edits happen during production: change requests from the user, escalations
       ```
    d. Once user confirms, create each directory: `mkdir -p project-planning/modules/mod-<name>/`
    e. For each module, also propose a **source path** — the code it owns (e.g. `src/login/`, or several paths separated by commas). Code used by two or more modules belongs to exactly one of them: an existing module that naturally owns it, or a module created for it and named for what it is (`mod-header`, not `mod-shared`). Every other module that uses it lists that owner under Dependencies, and the owner comes earlier in the Phase Plan.
-   f. Write the Module Map to `status.md` under `## Module Map`:
+   f. Name the **project files owner**: list the root-level files no module's Source Path covers (package manifests, lockfiles, `.env.example`, CI config) and propose one module — usually the first one built — to own them all. Confirm with the user. Source Paths may not overlap or nest (`src/` and `src/ui/` cannot both appear); if one module's code sits inside another's folder, give each its own subfolder.
+   g. Write the Module Map to `status.md` under `## Module Map`, with the project files line directly under the table:
       ```
       | MOD-ID  | Directory        | Module Name    | Source Path              |
       |---------|------------------|----------------|--------------------------|
       | MOD-001 | mod-login        | User Login     | src/login/               |
+
+      Project files: mod-login | package.json, package-lock.json, .env.example, .github/
       ```
 3. **Verify environment setup before tagging [INIT]**: Read `project-planning/status.md` and check for a Tech Lead Setup Confirmation entry under `## Tech Lead Reviews` (a block starting with `### Setup Confirmation`).
    - If a Setup Confirmation entry **exists**: proceed to step 4.
    - If **no** Setup Confirmation entry exists, or a `### Setup Changed` entry is newer than the latest one: **stop. Do not tag [INIT].**
      Tell the user: "The Tech Lead has not yet recorded setup confirmation in `status.md`. Complete `project-planning/setup.md`, then re-invoke the Tech Lead agent with 'Setup is complete.' The Tech Lead will record confirmation and give you the green light to invoke me."
-   - **This gate cannot be skipped.** Even if invoked with instructions to tag [INIT] directly, always check `status.md` for the confirmation entry first. See `references/anti-patterns.md` — "Dropping human-gate conditions when composing sub-agent prompts."
+   - **This gate cannot be skipped.** Even if invoked with instructions to tag [INIT] directly, always check `status.md` for the confirmation entry first. See `references/anti-patterns.md` — "Dropping Human-Gate Conditions When Handing Off to the Next Agent."
 4. Tag PM Updates entry `[INIT]` in `status.md` — this signals that the PRD is finalized and ready for Doc-Sync
 5. Commit with Last Action `mode: finalize` and hand off to Doc-Sync
 
@@ -161,8 +164,8 @@ These edits happen during production: change requests from the user, escalations
 - User has explicitly approved the PRD content
 - No `[DECISION NEEDED]` markers remain unresolved
 - `status.md` is updated: `[INIT]` summary for new PRDs, `[TRIVIAL]` or `[SUBSTANTIVE]` summary for updates
-- Module Map written to `status.md` with confirmed directory names for all modules (for `init` mode and any `change` that adds a new module)
-- Build Config written to `status.md` Build Config section (for `init` mode — all three keys present, blank is acceptable if a step doesn't apply)
+- Module Map written to `status.md` with confirmed directory names for all modules (for `finalize` mode and any `change` that adds a new module)
+- Build Config written to `status.md` Build Config section (for `finalize` mode — all three keys present, blank is acceptable if a step doesn't apply)
 - Phase Plan and Current Phase sections in `status.md` are blank at init handoff — Doc-Sync writes them
 - Git commit made before stopping: `git add project-planning/prd.md project-planning/status.md project-planning/modules/ && git commit -m "pm(<mode>): <summary>"`
 </success_criteria>

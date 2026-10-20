@@ -96,7 +96,6 @@ agent:
 mode:
 module:
 result:
-commit:
 timestamp:
 
 ## Current Phase
@@ -136,6 +135,12 @@ Test:
      | MOD-ID  | Directory        | Module Name    | Source Path              |
      |---------|------------------|----------------|--------------------------|
      | MOD-001 | mod-login        | User Login     | src/login/               |
+     No two Source Paths may overlap or nest (src/ and src/ui/ cannot both appear).
+
+     Project files are root-level files no single module's code lives in (manifests,
+     lockfiles, .env.example, CI config). One module owns them all; its Engineer is the only
+     one who may change them. One line, directly under the table:
+     Project files: mod-login | package.json, package-lock.json, .env.example, .github/
 -->
 
 ## Checkpoint History

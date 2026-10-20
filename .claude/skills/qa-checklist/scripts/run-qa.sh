@@ -63,7 +63,7 @@ PRODUCTION_MD="$PROJECT_ROOT/project-planning/production.md"
 TEST_CMD=""
 
 if [[ ! -f "$PRODUCTION_MD" ]]; then
-  warn "production.md not found at $PRODUCTION_MD — skipping automated test run"
+  fail "production.md not found at $PRODUCTION_MD — the automated test run cannot happen"
 else
   # Try several common formats:
   #   Test: <cmd>
@@ -73,11 +73,11 @@ else
   TEST_CMD=$(grep -iE '^\s*(test command|test_command|test)\s*[:=]\s*' "$PRODUCTION_MD" \
     | head -1 \
     | sed -E 's/^\s*(test command|test_command|test)\s*[:=]\s*//I' \
-    | sed 's/^["'"'"']//; s/["'"'"']$//' \
-    | xargs) || true
+    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/') || true
 
   if [[ -z "$TEST_CMD" ]]; then
-    warn "No test command found in $PRODUCTION_MD — skipping automated test run"
+    fail "No test command found in $PRODUCTION_MD — tests were not run"
     warn "Add a 'Test: <command>' line to status.md Build Config (Doc-Sync copies it to production.md) to enable this check"
   else
     info "Test command found: $TEST_CMD"
@@ -152,7 +152,7 @@ if [[ -n "$TEST_CMD" ]]; then
     fail "Test suite failed (exit $TEST_EXIT)"
   fi
 else
-  warn "Automated test run skipped — no test command configured"
+  fail "Automated test run skipped — no test command configured (if the project truly has no tests, the human must say so; record it in QA Results)"
 fi
 
 # ---------------------------------------------------------------------------

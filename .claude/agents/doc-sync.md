@@ -23,7 +23,7 @@ You may only create or modify:
 - `project-planning/production.md`
 - `project-planning/modules/*/spec.md` — create new spec files from template; update existing specs on delta/trivial syncs
 - `project-planning/modules/*/status.md` — create empty Engineering Progress + QA Results template during initial sync and when new modules are added
-- `project-planning/status.md` — Sync Reports, Current Phase (set once at initial sync — PM advances it at each checkpoint), Phase Plan, and Skill Recommendations sections only
+- `project-planning/status.md` — Last Action, Sync Reports, Current Phase (set once at initial sync — PM advances it at each checkpoint), Phase Plan, and Skill Recommendations sections only
 - `.claude/agents/engineer-mod-<name>.md` and `.claude/agents/qa-mod-<name>.md` — generated per-module wrappers during initial sync and when new modules are added
 
 Never write to `prd.md`, source code, or other `.claude/` files (other than the per-module agent wrappers listed above).
@@ -40,7 +40,7 @@ Before doing any work, read `project-planning/status.md` PM Updates to identify 
    → Follow `~/.claude/skills/doc-sync-methodology/workflows/delta-sync.md`
 
 3. **[TRIVIAL] tag** — A post-sync wording-only change with no structural impact.
-   → Passthrough: propagate the wording change to affected downstream docs only. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
+   → Passthrough: propagate the wording change to affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
 
 If no tag is present or the tag is unclear, stop and write an [AMBIGUITY] entry to `status.md` Sync Reports — do not guess.
 </workflow_selection>
@@ -105,12 +105,6 @@ After completing the sync work:
    ```bash
    git add project-planning/ .claude/agents/   # generated wrappers live in .claude/agents/
    git commit -m "doc-sync(<initial|delta|trivial>): <one-line summary>"
-   git rev-parse HEAD
-   ```
-   Write the returned hash into the `commit:` field in Last Action, then:
-   ```bash
-   git add project-planning/status.md
-   git commit --amend --no-edit
    ```
 </process>
 
@@ -122,7 +116,6 @@ agent: doc-sync
 mode: [initial|delta|trivial]
 module: n/a
 result: [success|needs-pm]
-commit: [git rev-parse HEAD after commit]
 timestamp: [ISO 8601]
 ```
 </last_action_format>

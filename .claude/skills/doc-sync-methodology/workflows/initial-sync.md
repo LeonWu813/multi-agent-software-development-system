@@ -75,7 +75,7 @@ Use this workflow on the first sync, when no downstream docs (production.md, mod
    **PRD Revision:** <revision>
    **Files created:**
    - production.md
-   - modules/mod-001/spec.md
+   - modules/<dir>/spec.md
    - (one line per file actually created)
    **AMBIGUITY markers logged:**
    - (list each, or "none")

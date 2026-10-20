@@ -15,7 +15,7 @@
 
 `PROPOSED` → `APPROVED` / `REJECTED` / `DEFERRED` → `IN PROGRESS` → `FIXED – AWAITING QA` → `QA VERIFIED` → `HUMAN VERIFIED` → `CONFIRMED CLOSED`
 
-PM's checkpoint gate for a phase requires every row logged for that phase to be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, or `NO ISSUES`. Any row in between (`PROPOSED` through `HUMAN VERIFIED`) is still open and blocks the checkpoint. Concerns and Recommendations are gated the same way; severity doesn't change the mechanism, only how much scrutiny the human gives before deciding.
+PM's checkpoint gate for a phase requires every row logged for that phase to be `CONFIRMED CLOSED`, `REJECTED`, `DEFERRED`, or `NO ISSUES`. Any row in between (`PROPOSED` through `HUMAN VERIFIED`) is still open and blocks the checkpoint. Concerns and Recommendations are gated the same way — every Recommendation needs an explicit approve, reject, or defer too; severity doesn't change the mechanism, only how much scrutiny the human gives before deciding. A `DEFERRED` row stops blocking its own phase but is listed again in every later phase's review until the human approves or rejects it.
 
 ## Findings
 

@@ -25,7 +25,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
 
    For each change identified in step 1, map it to the affected file(s):
    - Change to Project Overview, Tech Stack, or Architecture → production.md is affected
-   - Change to Module Breakdown for MOD-XXX → modules/mod-XXX/spec.md is affected
+   - Change to Module Breakdown for MOD-XXX → modules/<dir>/spec.md is affected
    - Change to a User Story → every module spec that references that US-ID is affected
    - Change to Acceptance Criteria → the module spec(s) where those AC entries appear are affected
    - Change to Phases & Milestones → status.md Phase Plan section is affected
@@ -54,7 +54,10 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Fill all sections following the same rules as initial-sync.md step 3. Remove all HTML template comments from the completed spec.
    - Add the new module as a row in production.md's Module Index table (MOD-ID, Module Name, Directory, Description).
    - Create `modules/<dir>/status.md` and generate `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md` exactly as initial-sync.md step 3 describes (template frontmatter `tools` and `model` copied unchanged).
-   - In your handoff message, tell the human to restart Claude Code before running the new agents, so they load.
+   - In your handoff message, tell the human to open a new terminal before running the new agents, so they load.
+   - The same applies to a module you skipped at an earlier sync with a `[BLOCKER]` that PM has since fixed (its MOD-ID is now in the Module Map): write its spec, status file, and agents now, and list the BLOCKER as resolved in the sync report.
+
+5a. **Regenerate the agents of changed modules.** If a module's Source Path, dependencies, or directory changed in the Module Map or the PRD, regenerate its `engineer-<dir>.md` and `qa-<dir>.md` from the templates so the hardcoded paths match the Module Map again. Never leave a wrapper that names an old Source Path.
 
 6. **If the change removes a module: note the removal — do NOT delete the file**
 
@@ -85,7 +88,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    **PM Update reference:** <date/title of the PM Updates entry that triggered this sync>
    **Files modified:**
    - production.md — <one-line description of what changed>
-   - modules/mod-XXX/spec.md — <one-line description of what changed>
+   - modules/<dir>/spec.md — <one-line description of what changed>
    - (one line per file actually modified)
    **Files created:**
    - (list, or "none")
