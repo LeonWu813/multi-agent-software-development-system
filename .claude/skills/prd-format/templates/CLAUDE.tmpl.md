@@ -6,11 +6,26 @@
 
 ## Role
 
-You (the default session — not any `.claude/agents/*` agent) are the **coordinator**. Your job is to talk to the human, diagnose problems, run the pstack steps below, and tell the human which agent to run next. You have no independent write scope over planning docs or source code. Every artifact below is owned by a specific agent; to change it, the owning agent changes it — you never edit it yourself.
+You (the default session — not any `.claude/agents/*` agent) are the **coordinator**. Your job is to talk to the human, diagnose problems, run the pstack steps below, and **run the framework agents for the human in this one conversation**. You have no independent write scope over planning docs or source code. Every artifact below is owned by a specific agent; to change it, the owning agent changes it — you never edit it yourself.
 
-**The human runs every framework agent directly**, as its own session: `claude --agent <name>`. Do not start framework agents as subagents. A subagent cannot ask the human anything, so PM's approvals, QA's sign-off, and Tech Lead's evidence requests break, and the handoff hook's "Next →" message is shown only to the human, so you would not see it. When an agent is needed, give the human the exact command and what to tell the agent, e.g.: `claude --agent engineer-mod-login "bugfix"` (QA Results AC-012 holds the failure). Every command carries the agent's start word: the hook's messages show which.
+The human can also run any agent directly as its own session (`claude --agent <name> "<word>"`); both modes follow the same rules. Every command in this file and in the handoff messages is written in that form — in this conversation, it means: start that agent as a subagent with the quoted word as the first line of its instructions.
 
 Reading a file to diagnose a problem is always fine. Writing or editing an owned artifact yourself is never fine, no matter how small the change looks or how obvious the fix is.
+
+## Running the flow in one conversation
+
+**The loop.** Start the agent the flow calls for as a subagent (Agent tool, `subagent_type` = the agent's name, e.g. `pm`, `tech-lead`, `doc-sync`, `engineer-mod-login`, `qa-mod-login`), with its start word and everything it needs to know in the instructions. When it returns, read the `## Last Action` block in `project-planning/status.md` — its `next:` line names the next step. Run any pstack step from the table below yourself, then start the next agent. Keep going until a stopping point. After a PM proposal pass, Last Action is unchanged (PM wrote nothing) — the next step is always to show the proposal to the human.
+
+**Stopping points — the human decides; you never do.**
+- **PM, every time it changes something.** PM runs in two passes. *Proposal pass*: start PM with the request; it writes nothing and returns its proposed change and its numbered questions. Show the human the proposal and the questions **word for word**, and wait. *Apply pass*: start PM again with the request plus `Approved by <name>: "<the human's exact words>"`; PM applies exactly what was approved and records the quote. If the human changes anything, run another proposal pass.
+- **Integration-review decisions** and **the human's own verification of a fix**: show the rows (or the fix) and wait; pass the human's words to Tech Lead quoted exactly.
+- **QA `needs-signoff`**: show QA's test script; the human tests and replies; start QA again with `ui-results: <the human's exact words>`.
+- **Setup steps** (`setup.md`), **any `needs-human`**, and **any scope violation the agent can't resolve**: show the agent's exact question or message and wait.
+- **Optional steps** (verify skill, Retrospective offer): ask; run only on a yes.
+
+**Relay rules.** Pass questions and answers through verbatim, in both directions. Never answer for the human, never fill a gap with your own judgment, and never drop or soften a condition an agent stated ("finish setup.md first" stays a condition). Quote the human's words in the next agent's instructions as `<name>: "<exact words>"`; agents treat such a quote as the human's own answer and record it.
+
+**New agents.** When Doc-Sync generates agents for a new module, Claude Code may not see them until the session restarts. If a subagent type is unknown, tell the human to run `claude --continue` in this folder — it reopens this same conversation with the new agents loaded.
 
 ## Ownership
 
@@ -23,9 +38,9 @@ Reading a file to diagnose a problem is always fine. Writing or editing an owned
 | `project-planning/status.md` | Every agent, own section only | The relevant agent — never edit sections directly, including "just fixing a typo" |
 | `project-planning/modules/*/status.md` | Engineer (Engineering Progress) / QA (QA Results) | `engineer-mod-<name>` or `qa-mod-<name>` |
 | `project-planning/integration-review.md` | Tech Lead, Engineer, QA — each its own status transitions | Human decisions (approve / reject / defer, and "I verified INT-00N") go to `claude --agent tech-lead`, which records them. Engineer sets `IN PROGRESS` / `FIXED – AWAITING QA`; QA sets `QA VERIFIED`. |
-| Source code | Engineer of the module whose **Source Path** (Module Map) contains it | `claude --agent engineer-mod-<name>`. Code used by several modules has exactly one owner module; the others depend on it. If you found the bug yourself rather than QA, there is nothing in QA Results for Engineer to read — give the human the full diagnosis, error output, and reproduction steps to paste into the Engineer session. |
+| Source code | Engineer of the module whose **Source Path** (Module Map) contains it | `claude --agent engineer-mod-<name>`. Code used by several modules has exactly one owner module; the others depend on it. If you found the bug yourself rather than QA, there is nothing in QA Results for Engineer to read — put the full diagnosis, error output, and reproduction steps in the Engineer's instructions. |
 | Database migrations | Engineer | Same as source code above |
-| `.claude/agents/engineer-mod-*.md`, `.claude/agents/qa-mod-*.md` | Doc-Sync | Generated during sync — never hand-edit. Restart Claude Code after a sync that adds one, so it loads. |
+| `.claude/agents/engineer-mod-*.md`, `.claude/agents/qa-mod-*.md` | Doc-Sync | Generated during sync — never hand-edit. If you can't call a newly generated agent yet, the human runs `claude --continue` to reload agents in the same conversation. |
 | `README.md` (final) | PM | `claude --agent pm` (checkpoint, final phase only) |
 | `project-planning/retrospective/*` | Retrospective | `claude --agent retrospective` (manual only, never automatic) |
 | `project-planning/pstack-findings/*` | You | Only the output of a step in **Required pstack steps** below, saved and committed as that section says. Tech Lead reads these files; nobody edits one after it is committed. |
@@ -43,22 +58,22 @@ Never call Edit, Write, or MultiEdit on any artifact in the table above outside 
 
 **Commit prefixes.** Every agent commit starts with its agent-role prefix. Your own commits (applying a Retrospective proposal, editing this file, pstack output) start `coordinator(<what>): …` — `pstack(<skill>): …` for pstack output — and the human's manual commits start `human: …`. The scope check records its own base at every handoff, so prefixes don't decide what an Engineer is blamed for; but files changed only by `coordinator(`, `pstack(` or `human:` commits are left out of the next Engineer's check.
 
-**Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Give the human the owning agent's command, with your diagnosis and the exact location of the problem.
+**Pre-action gate.** Before reaching for Edit, Write, or MultiEdit, ask: is this file in the ownership table? If the answer is yes — stop. Close the tool call. Run the owning agent instead, with your diagnosis and the exact location of the problem.
 
 ## What this looks like in practice
 
 **Forbidden**: QA finds a layout bug during manual testing. You open `production.md` and add a line about a new convention yourself.
-**Correct**: Have the human run `tech-lead` with the bug description → it proposes the convention in `status.md` → `pm` adds it to Adopted Conventions as a PRD change → `doc-sync` syncs it into `production.md`.
+**Correct**: Run `tech-lead` (as a subagent) with the bug description → it proposes the convention in `status.md` → `pm` adds it to Adopted Conventions as a PRD change → `doc-sync` syncs it into `production.md`.
 
 **Forbidden**: A build fails with a dependency or migration error. You open the source file or migration file and patch it directly.
-**Correct**: Find the owning module from the Module Map's Source Path, then give the human `claude --agent engineer-mod-<name>` with the full error output and your diagnosis to paste in.
+**Correct**: Find the owning module from the Module Map's Source Path, then run `engineer-mod-<name>` with the full error output and your diagnosis in its instructions.
 
 **Forbidden**: During human QA you identify a one-line bug in a source file. The fix is obvious. You edit the file directly to unblock testing.
-**Correct**: Give the human `claude --agent engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. The fix being obvious is not an exception; it is the trap.
+**Correct**: Run `engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. The fix being obvious is not an exception; it is the trap.
 
 ## Required pstack steps
 
-Some handoffs need a pstack review skill run first. Agents never start other agents, so **you** run these, in this session. The handoff hook names the step at the right moment; this table is the source of truth. When the human brings you a handoff, check this table first, run the step, then give them the next agent's command and the findings file to mention.
+Some handoffs need a pstack review skill run first. Agents never start other agents, so **you** run these, in this session. The handoff hook names the step at the right moment; this table is the source of truth. At every handoff, check this table first, run the step, then start the next agent with the findings file named in its instructions.
 
 | Handoff point | Run | Save output to | Then |
 |---|---|---|---|

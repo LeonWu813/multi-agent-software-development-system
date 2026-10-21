@@ -205,7 +205,7 @@ esac
     doc-sync)
         case "$RESULT" in
             needs-pm)   NEXT="Doc-Sync left unresolved PRD questions (see Sync Reports). \`claude --agent pm \"change\"\` before any engineering starts" ;;
-            *)          NEXT="Review the sync report in status.md. If it generated new agents, open a new terminal so they load. Then: \`claude --agent engineer-NEXT_MODULE \"implement\"\` (the first module in the Phase Plan not yet built; if this sync created an owner module that takes over existing code, first \`claude --agent tech-lead \"log migration rows for OWNER_MODULE\"\`)" ;;
+            *)          NEXT="Review the sync report in status.md. If it generated new agents and they can't be called yet, run claude --continue to reload them in the same conversation. Then: \`claude --agent engineer-NEXT_MODULE \"implement\"\` (the first module in the Phase Plan not yet built; if this sync created an owner module that takes over existing code, first \`claude --agent tech-lead \"log migration rows for OWNER_MODULE\"\`)" ;;
         esac ;;
     engineer-*)
         SLUG="${AGENT#engineer-}"
@@ -291,6 +291,15 @@ esac
 
 MSG="Handoff — $AGENT ($MODE, $RESULT)
 Next → $NEXT"
+# In one-conversation mode the agent ran as a subagent: the coordinator carries on, except at stopping points
+if [ "$(echo "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null)" = "SubagentStop" ]; then
+    case "$RESULT:$AGENT:${MODE%% *}" in
+        needs-human:*|needs-signoff:*|blocked*|setup-changed:*|issues-found:*|project-complete:*|*:pm:*|*:tech-lead:init-review|success:qa-*:integration-fix-verify) MSG="$MSG
+(The coordinator will ask you before continuing.)" ;;
+        *) MSG="$MSG
+(The coordinator runs this next step for you unless it needs your decision.)" ;;
+    esac
+fi
 [ -n "$SCOPE_NOTES" ] && MSG="$MSG
 $SCOPE_NOTES"
 [ -n "$OPEN_ITEMS" ] && MSG="$MSG

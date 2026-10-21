@@ -1,10 +1,11 @@
 # Multi-Agent Software Development System
 
 A team of six specialized AI agents that plan, build, and QA software through a
-controlled, human-approved workflow. Each agent runs as an independent
-[Claude Code](https://docs.claude.com/en/docs/claude-code) session with a single
-responsibility, coordinating entirely through files on disk — no shared memory,
-no black box. A human reviews and approves every handoff.
+controlled, human-approved workflow. Each agent is a
+[Claude Code](https://docs.claude.com/en/docs/claude-code) agent with a single
+responsibility and its own fresh context, coordinating entirely through files on disk
+— no shared memory, no black box. A coordinator runs the agents for you in one
+conversation and stops for you at every decision.
 
 **It produces real software.** This system designed, implemented, and QA'd
 **[TabVault](https://tab-vault.com)**, a deployed full-stack tab/notes manager.
@@ -15,17 +16,21 @@ no black box. A human reviews and approves every handoff.
 ## How it works
 
 Each agent does one job, sees only the files its role needs, and commits its work
-to git before stopping. The human runs every agent directly as its own session
-(`claude --agent <name>`), so agents can ask the human questions; no agent starts
-another. Every agent records the exact command to run next (`next:` in `status.md`,
-where it stays for later), and a `Stop` hook prints it, ready to paste
-(`claude --agent <name> "<start word>"`, e.g. `claude --agent qa-mod-login "verify"`;
-anything the human fills in is an UPPERCASE placeholder such as `INT-ID`; the hook
-falls back to its own per-mode default when `next:` is missing) — and the human
-decides whether to run it. The default Claude Code session acts
-as a coordinator: it tells the human which agent to run and runs the pstack review
-steps (saved to `project-planning/pstack-findings/`) that Tech Lead reads, but never
-edits an owned file itself. Every handoff is an atomic git commit, so any step can be
+to git before stopping. The default Claude Code session acts as a **coordinator** in
+**one-conversation mode**: it runs every framework agent for the human as a subagent,
+reads the next step each agent records (`next:` in `status.md`, written as
+`claude --agent <name> "<start word>"`, e.g. `claude --agent qa-mod-login "verify"`),
+runs the pstack review steps (saved to `project-planning/pstack-findings/`) that Tech
+Lead reads, and starts the next agent — but never edits an owned file itself, and no
+agent starts another. A subagent can't ask the human anything, so the coordinator
+stops at every decision: each PM change (PM first returns a proposal and its
+questions, writing nothing; it applies the change only with the human's approval
+quoted word for word), integration-review decisions, the human's own verification of
+a fix, QA's UI sign-off, setup steps, and any agent's `needs-human` question. It
+relays questions and answers verbatim and never decides for the human. A handoff hook
+prints each step for the human too, noting whether the coordinator carries on or will
+ask first. Running any agent directly (`claude --agent <name> "<start word>"`) still
+works, under the same rules. Every handoff is an atomic git commit, so any step can be
 rolled back cleanly, and every phase checkpoint is tagged `checkpoint-<N>`.
 
 ```mermaid
@@ -60,8 +65,9 @@ flowchart TD
     class H1,H2 human;
 ```
 
-*A human approval gate sits on every arrow — the hook suggests the next step; the
-human runs it.*
+*The coordinator walks these arrows for you; the human decides at every gate — each
+PM change, setup, integration-review decisions, fix verification, UI sign-off, and any
+question an agent raises.*
 
 ---
 
@@ -76,8 +82,9 @@ makes them produce correct software reliably. Four ideas do most of the work:
 - **Least-privilege information boundaries.** Each agent reads and writes only the
   files its role requires. The Engineer never sees the PRD; it sees its module spec,
   which carries forward just enough context. No agent sees everything.
-- **Human in the loop at every handoff.** The system proposes the next action; the
-  human approves before it runs. Nothing is applied without review.
+- **Human in the loop at every decision.** The coordinator runs the routine steps;
+  every decision is the human's, relayed word for word, and PM applies no change
+  without the human's quoted approval.
 - **Git as a rollback safety net.** Every handoff is an atomic commit, so any step
   is a clean point to revert to. Progressive-disclosure skills (lean router files
   that load detailed workflows only when needed) keep each agent's context
@@ -141,9 +148,12 @@ cd ~/projects/my-new-app
 claude --agent pm
 ```
 
-From there, follow the command each hook prints, approving each handoff. Run each
-agent yourself in its own session — don't have the default session start agents as
-subagents. Open a new terminal after Doc-Sync generates new per-module agents so they load.
+From there, open the default session (`claude`) in the project folder: the scaffolded
+`CLAUDE.md` makes it the coordinator, which runs each agent as a subagent and stops
+whenever it needs your decision. You can still run any agent yourself with the command
+the hook prints. If Doc-Sync generates new per-module agents and the coordinator can't
+find them yet, run `claude --continue` in the folder — it reopens the same conversation
+with the new agents loaded.
 
 ---
 

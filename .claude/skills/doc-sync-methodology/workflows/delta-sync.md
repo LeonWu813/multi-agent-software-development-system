@@ -55,7 +55,7 @@ A [TRIVIAL] change (typo fix, minor wording clarification that doesn't alter mea
    - Fill all sections following the same rules as initial-sync.md step 3. Remove all HTML template comments from the completed spec.
    - Add the new module as a row in production.md's Module Index table (MOD-ID, Module Name, Directory, Description).
    - Create `modules/<dir>/status.md` and generate `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md` exactly as initial-sync.md step 3 describes (template frontmatter `tools` and `model` copied unchanged).
-   - In your handoff message, tell the human to open a new terminal before running the new agents, so they load. Regenerated agents (step 5a) count too.
+   - In your handoff message, tell the human that if the new agents can't be called yet, `claude --continue` reloads them in the same conversation. Regenerated agents (step 5a) count too.
    - If the PRD change says the new module takes over code that other modules already hold, end your handoff with: `claude --agent tech-lead "log migration rows for <owner dir>"` — Tech Lead logs one integration-review row per module that must give up its copy.
    - The same applies to a module you skipped at an earlier sync with a `[BLOCKER]` that PM has since fixed (its MOD-ID is now in the Module Map): write its spec, status file, and agents now, and list the BLOCKER as resolved in the sync report.
 
