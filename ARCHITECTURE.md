@@ -618,6 +618,7 @@ Both hooks are registered under `"hooks"` in `~/.claude/settings.json` (account-
 
 ### handoff.sh
 
+- **Result synonyms**: before routing, the hook normalizes the recorded `result:` (case, `_`, backticks) and maps common slips — `pass`/`passed`/`ok`/`done` → `success`, `fail`/`failed` → `bugs-found`, `need-human` → `needs-human`, and similar — showing the mapping in the message (`pass → read as success`)
 - **Location**: `.claude/hooks/handoff.sh` (project source); `~/.claude/hooks/handoff.sh` (account-level copy)
 - **Registered Events**: `SubagentStop` (fires when a framework agent run as a subagent in one-conversation mode finishes — the primary path) and `Stop` (fires when a direct `claude --agent X` session, or the coordinator's own session, finishes a turn)
 - **Behavior**:

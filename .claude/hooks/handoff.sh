@@ -47,6 +47,17 @@ LAST_ACTION=$(awk '/^## Last Action/{found=1; next} found && /^## /{exit} found{
 AGENT=$(echo "$LAST_ACTION"  | grep -m1 "^agent:"  | sed 's/agent:[[:space:]]*//')
 MODE=$(echo "$LAST_ACTION"   | grep -m1 "^mode:"   | sed 's/mode:[[:space:]]*//')
 RESULT=$(echo "$LAST_ACTION" | grep -m1 "^result:" | sed 's/result:[[:space:]]*//')
+# Accept common wording slips so a synonym never breaks routing (the message shows the mapping)
+RESULT_RAW="$RESULT"
+RESULT=$(printf '%s' "$RESULT" | tr '[:upper:]_' '[:lower:]-' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^`//; s/`$//')
+case "$RESULT" in
+    pass|passed|ok|done|complete|completed|succeeded|successful) RESULT=success ;;
+    fail|failed|failure|bugs|bug-found|bugs) RESULT=bugs-found ;;
+    need-human|needs-user|waiting-on-human|human-needed) RESULT=needs-human ;;
+    need-signoff|needs-sign-off|signoff) RESULT=needs-signoff ;;
+    need-pm|needs-pm-review) RESULT=needs-pm ;;
+    spec-problem|spec) RESULT=spec-issue ;;
+esac
 MODULE=$(echo "$LAST_ACTION" | grep -m1 "^module:" | sed 's/module:[[:space:]]*//')
 
 [ -z "$AGENT" ] && exit 0
@@ -284,7 +295,7 @@ esac
 # Steps the hook adds whoever wrote the next command: the verify hint after a QA pass, and the
 # verify refresh at a checkpoint
 case "$AGENT:$RESULT" in
-    qa-*:success) echo "$NEXT" | grep -q "create-verification-skill" || NEXT="$NEXT$VERIFY_HINT" ;;
+    qa-*:success) [ "${MODE%% *}" != "integration-fix-verify" ] && ! echo "$NEXT" | grep -q "create-verification-skill" && NEXT="$NEXT$VERIFY_HINT" ;;
     pm:success)
         if [ "${MODE%% *}" = "checkpoint" ] && [ -f "$CWD/.claude/skills/verify/SKILL.md" ] && ! echo "$NEXT" | grep -q "maintain-verification-skill"; then
             NEXT="First the coordinator refreshes the verify skill with /pstack:maintain-verification-skill (with your OK). Then: $NEXT"
@@ -294,7 +305,8 @@ case "$AGENT:$RESULT" in
         fi ;;
 esac
 
-MSG="Handoff — $AGENT ($MODE, $RESULT)
+RESULT_SHOWN="$RESULT"; [ "$RESULT_RAW" != "$RESULT" ] && RESULT_SHOWN="$RESULT_RAW → read as $RESULT"
+MSG="Handoff — $AGENT ($MODE, $RESULT_SHOWN)
 Next → $NEXT"
 # In one-conversation mode the agent ran as a subagent: the coordinator carries on, except at stopping points
 if [ "$(echo "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null)" = "SubagentStop" ]; then
