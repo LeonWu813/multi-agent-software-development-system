@@ -90,6 +90,7 @@ Every agent that writes a Last Action block (all but Retrospective) always recor
 - **File**: `.claude/agents/doc-sync.md` (model: sonnet)
 - **Single Responsibility**: Translate `prd.md` content into downstream planning docs — nothing more, nothing less
 - **Tools**: Read, Write, Grep, Glob, Bash (no `Skill` — `pstack-guard.sh` gives Doc-Sync an empty allowlist; it must never run a rewriting skill on its output)
+- **Template refresh**: without a PM tag, when asked (`claude --agent doc-sync "template refresh"`, or by the coordinator) after the framework's agent templates change, regenerates every per-module agent from the current templates and Module Map, touches no spec, `production.md` or PRD, and records `mode: template-refresh` with `next:` repeating the step that was next before.
 - **Write Scope**: `production.md`; `modules/*/spec.md`; `modules/*/status.md` (created with empty Engineering Progress + QA Results sections at initial sync and when a module is added); project-level `status.md` Last Action, Sync Reports, Phase Plan, Skill Recommendations, and Current Phase (set once, at initial sync — PM advances it after that); `.claude/agents/engineer-<dir>.md` and `.claude/agents/qa-<dir>.md` (generated wrappers)
 - **Skills Used**: doc-sync-methodology
 - **Invocation**: `claude --agent doc-sync`, after every PM tag (`[INIT]`, `[SUBSTANTIVE]`, `[TRIVIAL]` — trivial included)

@@ -46,6 +46,9 @@ Before doing any work, read `project-planning/status.md` PM Updates to identify 
 3. **[TRIVIAL] tag** — A post-sync wording-only change with no structural impact.
    → Passthrough: process every `[TRIVIAL]` entry added since the last Sync Report in one run, in the order they appear in PM Updates (position, not date — same-day entries are common), propagating each wording change to the affected downstream docs only. A `[TRIVIAL] Build Config changed` entry means: copy `status.md` Build Config into `production.md` Shared Conventions again. Write a brief sync note to `status.md` Sync Reports. Do NOT run `verify-sync.sh`.
 
+4. **Template refresh** — no PM tag: the human (directly, or through the coordinator) asks you to regenerate the per-module agents because the framework's agent templates changed. This changes no requirement, so it needs no PRD change.
+   → Regenerate every `engineer-<dir>.md` and `qa-<dir>.md` for each Module Map row exactly as initial-sync.md step 3 describes (template frontmatter `tools` and `model` copied exactly, `name:` set, body verbatim, spec path, Source Paths, project files for their owner, dependency status files). Touch no spec, `production.md`, or `prd.md`. Write a `### Sync Report — Template refresh — <date>` entry listing the regenerated files, and Last Action `mode: template-refresh`, with `next:` repeating the step that was next before the refresh (read it from the previous Last Action). No `verify-sync.sh` run is needed.
+
 If the entries waiting since the last Sync Report mix tags, use the strongest one — `[SUBSTANTIVE]` (delta sync, which also carries the trivial wording changes) over `[TRIVIAL]`. If no tag is present or the tag is unclear, stop and write an [AMBIGUITY] entry to `status.md` Sync Reports — do not guess.
 </workflow_selection>
 
@@ -117,7 +120,7 @@ Update this block in `project-planning/status.md` before every commit:
 
 ```
 agent: doc-sync
-mode: [initial|delta|trivial]
+mode: [initial|delta|trivial|template-refresh]
 module: n/a
 result: [success|needs-pm]
 next: [the exact command(s) the human runs next, with the agent's start word — include any coordinator pstack step the project CLAUDE.md table requires, e.g. "the coordinator runs /pstack:thermos, then claude --agent tech-lead \"phase-end integration review\""]

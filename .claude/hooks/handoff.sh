@@ -205,7 +205,11 @@ esac
     doc-sync)
         case "$RESULT" in
             needs-pm)   NEXT="Doc-Sync left unresolved PRD questions (see Sync Reports). \`claude --agent pm \"change\"\` before any engineering starts" ;;
-            *)          NEXT="Review the sync report in status.md. If it generated new agents and they can't be called yet, run claude --continue to reload them in the same conversation. Then: \`claude --agent engineer-NEXT_MODULE \"implement\"\` (the first module in the Phase Plan not yet built; if this sync created an owner module that takes over existing code, first \`claude --agent tech-lead \"log migration rows for OWNER_MODULE\"\`)" ;;
+            *)
+                if [ "${MODE%% *}" = "template-refresh" ]; then
+                    NEXT="Module agents regenerated from the current templates. Run claude --continue so they load, then carry on with the step that was next before the refresh"
+                else NEXT="Review the sync report in status.md. If it generated new agents and they can't be called yet, run claude --continue to reload them in the same conversation. Then: \`claude --agent engineer-NEXT_MODULE \"implement\"\` (the first module in the Phase Plan not yet built; if this sync created an owner module that takes over existing code, first \`claude --agent tech-lead \"log migration rows for OWNER_MODULE\"\`)"
+                fi ;;
         esac ;;
     engineer-*)
         SLUG="${AGENT#engineer-}"
