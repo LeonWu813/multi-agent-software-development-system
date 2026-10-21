@@ -148,7 +148,8 @@ Fix first: \`claude --agent $AGENT \"scope-fix\"\` — it undoes only those chan
 esac
 
 [ -n "$NEXT" ] || case "$RESULT" in
-    needs-human)   NEXT="$AGENT is waiting on you — read its last message (and its status.md entry), do what it asks, then run \`claude --agent $AGENT\` and give it your answer" ;;
+    needs-human)   if [ -n "$NEXT_FIELD" ]; then NEXT="$AGENT is waiting on you — $NEXT_FIELD"
+                   else NEXT="$AGENT is waiting on you — read its last message (and its status.md entry), do what it asks, then run \`claude --agent $AGENT\` and give it your answer"; fi ;;
     needs-signoff) NEXT="QA needs your sign-off — run its test script (in QA Results), then: \`claude --agent $AGENT \"ui-results: WHICH ACS PASSED, WHICH FAILED AND HOW\"\`" ;;
 esac
 # next: never hides a setup change — the human must redo setup first
