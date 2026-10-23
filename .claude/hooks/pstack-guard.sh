@@ -11,6 +11,8 @@
 # 5. Subagents that are not framework agents (pstack reviewers run as general-purpose,
 #    pstack:effort-*, pstack:thermo-*) may write in the project only under
 #    project-planning/pstack-findings/.
+# 6. No agent may change the project's .claude/settings.json or settings.local.json:
+#    permission rules are the human's decision.
 #
 # Main-session calls carry no agent_type and are not blocked here; CLAUDE.md governs them.
 # Exit 2 blocks the call and shows stderr to the agent as the reason.
@@ -80,6 +82,11 @@ esac
 case "$REAL_FILE" in
     "$REAL_CWD"/*) REL="${REAL_FILE#"$REAL_CWD"/}" ;;
     *) exit 0 ;;  # outside the project (scratch files, probe scripts)
+esac
+
+# Permission rules are the human's
+case "$REL" in
+    .claude/settings.json|.claude/settings.local.json) block "$AGENT may not change $REL — permission rules are the human's decision. If a permission check blocked you, say so in your final message with the exact action that was refused." ;;
 esac
 
 # Only PM may change the Module Map

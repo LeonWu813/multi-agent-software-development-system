@@ -11,6 +11,7 @@ set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE="$SKILL_DIR/templates/prd.tmpl.md"
 CLAUDE_TEMPLATE="$SKILL_DIR/templates/CLAUDE.tmpl.md"
+SETTINGS_TEMPLATE="$SKILL_DIR/templates/settings.tmpl.json"
 
 if [[ ! -f "$TEMPLATE" ]]; then
   echo "ERROR: Template not found at $TEMPLATE" >&2
@@ -20,6 +21,12 @@ fi
 
 if [[ ! -f "$CLAUDE_TEMPLATE" ]]; then
   echo "ERROR: Template not found at $CLAUDE_TEMPLATE" >&2
+  echo "       Ensure the prd-format skill is fully installed before running this script." >&2
+  exit 1
+fi
+
+if [[ ! -f "$SETTINGS_TEMPLATE" ]]; then
+  echo "ERROR: Template not found at $SETTINGS_TEMPLATE" >&2
   echo "       Ensure the prd-format skill is fully installed before running this script." >&2
   exit 1
 fi
@@ -80,6 +87,38 @@ else
   echo "  NOTE: $CLAUDE_DEST already exists and was not modified. Manually merge the" >&2
   echo "        Coordinator Instructions section from $CLAUDE_TEMPLATE so ownership" >&2
   echo "        rules are enforced in this project." >&2
+fi
+
+# ---------------------------------------------------------------------------
+# Copy .claude/settings.json from template: allow rules for the writes the flow
+# always needs (project-planning/ files, git add/commit/tag), so Claude Code's
+# auto-mode permission check does not refuse a PM apply pass or an agent commit.
+# Never modify an existing file — permission rules are the human's; list what
+# is missing instead.
+# ---------------------------------------------------------------------------
+SETTINGS_DEST="$PROJECT_ROOT/.claude/settings.json"
+if [[ ! -f "$SETTINGS_DEST" ]]; then
+  mkdir -p "$PROJECT_ROOT/.claude"
+  cp "$SETTINGS_TEMPLATE" "$SETTINGS_DEST"
+  created "$SETTINGS_DEST"
+else
+  skipped "$SETTINGS_DEST"
+  MISSING=$(python3 - "$SETTINGS_TEMPLATE" "$SETTINGS_DEST" <<'PY' 2>/dev/null || true
+import json, sys
+want = json.load(open(sys.argv[1]))["permissions"]["allow"]
+try:
+    have = json.load(open(sys.argv[2])).get("permissions", {}).get("allow", [])
+except (OSError, ValueError, AttributeError):
+    have = []
+print("\n".join(r for r in want if r not in have))
+PY
+)
+  if [[ -n "$MISSING" ]]; then
+    echo "  NOTE: $SETTINGS_DEST was not modified. Without these allow rules, Claude Code's" >&2
+    echo "        permission check may refuse agents' planning writes and commits. Add them to" >&2
+    echo "        \"permissions\": { \"allow\": [...] } yourself:" >&2
+    while IFS= read -r rule; do echo "          \"$rule\"" >&2; done <<< "$MISSING"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -175,5 +214,7 @@ echo "  3. Review the completed draft against references/anti-patterns.md."
 echo "  4. Run the quality checklist in SKILL.md before handoff."
 echo "  5. $CLAUDE_DEST was scaffolded with Coordinator Instructions (ownership"
 echo "     rules for planning docs and source code) — keep this section intact."
+echo "  6. $SETTINGS_DEST pre-approves planning writes and git add/commit/tag."
+echo "     Project allow rules apply once you accept the workspace trust dialog."
 
 exit 0

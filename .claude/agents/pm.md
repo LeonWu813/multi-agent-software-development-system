@@ -72,7 +72,7 @@ In either mode, the invocation usually names the mode (`iterate`, `finalize`, `c
 8. **Confirm with the user before writing to `prd.md`.** Explicit approval only — silence or a follow-up question does not count.
 9. Update Last Action (`mode: init`), then commit:
    ```bash
-   git add project-planning/ CLAUDE.md   # CLAUDE.md is the coordinator instructions the scaffold created
+   git add project-planning/ CLAUDE.md .claude/settings.json   # CLAUDE.md and .claude/settings.json (allow rules) were created by the scaffold
    git commit -m "pm(init): draft PRD for <project>"
    ```
 10. Tell the user: "Next: run `claude --agent tech-lead "initial PRD review"` to review the draft. Do not run me again until Tech Lead has recorded a `### Setup Confirmation` entry in `status.md`."

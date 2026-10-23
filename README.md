@@ -142,8 +142,9 @@ chmod +x ~/.claude/hooks/*.sh
 # and python3. Optional: install the pstack plugin for the review steps listed under
 # "Required pstack steps" in the scaffolded CLAUDE.md.
 
-# Start a new project (PM's init scaffolds project-planning/ and CLAUDE.md, and runs
-# git init if the folder is not a repository yet)
+# Start a new project (PM's init scaffolds project-planning/, CLAUDE.md and
+# .claude/settings.json — allow rules so Claude Code's permission check doesn't refuse
+# planning writes and commits — and runs git init if the folder is not a repository yet)
 cd ~/projects/my-new-app
 claude --agent pm
 ```
