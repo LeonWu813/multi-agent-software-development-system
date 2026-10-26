@@ -19,6 +19,11 @@ Usage:
       Exit 0 = all in scope, 1 = not, 2 = no Module Map row, 3 = no Source Path column.
   module_scope.py dependents <project-root> <module-dir>
       prints the modules whose spec.md "## Dependencies" section names this module's MOD-ID
+  module_scope.py touched <project-root> <git-range>
+      for code from outside the framework (a merge, or main...<branch>): prints each module whose
+      Source Path or project files the range changes, one per line as "<dir>: <files>", then
+      "unowned: <files>" for changed files no module owns and "planning: <files>" for
+      project-planning/ files
 
 Write scope of an Engineer = its Source Paths + the project files it owns + its own planning
 files (modules/<dir>/ except spec.md, project-planning/status.md, integration-review.md).
@@ -195,6 +200,29 @@ def dependents(root, mod):
     return out
 
 
+def touched(root, rng):
+    has_source_col, modules, project = parse(os.path.join(root, "project-planning", "status.md"))
+    out = git(root, "-c", "core.quotePath=false", "diff", "--name-only", "-z", "--no-renames", "--relative", rng)
+    if out is None:
+        return None
+    by_owner, unowned, planning = {}, [], []
+    for f in sorted(x for x in out.split("\0") if x):
+        if f.startswith("project-planning/"):
+            planning.append(f)
+            continue
+        o = owner_of(norm_path(f), modules, project) if has_source_col else None
+        if o:
+            by_owner.setdefault(o, []).append(f)
+        else:
+            unowned.append(f)
+    lines = [f"{d}: {', '.join(fs)}" for d, fs in sorted(by_owner.items())]
+    if unowned:
+        lines.append("unowned: " + ", ".join(unowned))
+    if planning:
+        lines.append("planning: " + ", ".join(planning))
+    return lines
+
+
 def in_scope(rel, mod, has_source_col, modules, project):
     """(code, reason) — code 0 in scope, 1 outside, 2 no row, 3 no Source Path column."""
     rel = norm_path(rel)
@@ -225,6 +253,14 @@ def main():
     cmd = sys.argv[1]
     if cmd == "dependents":
         print(", ".join(dependents(sys.argv[2], norm_dir(sys.argv[3]))))
+        return 0
+    if cmd == "touched":
+        lines = touched(sys.argv[2], sys.argv[3])
+        if lines is None:
+            print(f"git could not diff {sys.argv[3]}")
+            return 1
+        for line in lines:
+            print(line)
         return 0
     if cmd == "changed":
         root, mod = sys.argv[2], norm_dir(sys.argv[3])

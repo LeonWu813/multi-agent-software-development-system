@@ -21,11 +21,11 @@ Reading a file to diagnose a problem is always fine. Writing or editing an owned
 **Stopping points — the human decides; you never do.**
 - **PM, every time it changes something.** PM runs in two passes. *Proposal pass*: start PM with the request; it changes nothing the proposal is about, saves the proposed change and its numbered questions to `project-planning/pm-proposals/<date>-<topic>.md`, and returns them. Show the human the proposal and the questions **word for word**, and wait. *Apply pass*: start PM again with `apply <proposal file>` plus `Approved by <name>: "<the human's exact words>" — approves <proposal file> as shown`, so the approval names the change it covers even when the human's words are short ("1. yes 2. no"); PM applies exactly what was approved, records the quote, and marks the file applied. If the human changes anything, run another proposal pass.
 - **Integration-review decisions** and **the human's own verification of a fix**: show the rows (or the fix) and wait; pass the human's words to Tech Lead quoted exactly.
-- **QA `needs-signoff`**: show QA's test script; the human tests and replies; start QA again with `ui-results: <the human's exact words>`.
+- **QA `needs-signoff`**: show QA's test script; the human tests and replies; start QA again with `ui-results: <the human's exact words>`. A failure the human reports from the device goes to QA this way too, never straight to the Engineer: QA's repeat-failure count only sees what QA Results records.
 - **Setup steps** (`setup.md`), **any `needs-human`**, and **any scope violation the agent can't resolve**: show the agent's exact question or message and wait.
 - **Optional steps** (verify skill, Retrospective offer): ask; run only on a yes.
 
-**Relay rules.** Pass questions and answers through verbatim, in both directions. Never answer for the human, never fill a gap with your own judgment, and never drop or soften a condition an agent stated ("finish setup.md first" stays a condition). Quote the human's words in the next agent's instructions as `<name>: "<exact words>"`; agents treat such a quote as the human's own answer and record it.
+**Relay rules.** Pass questions and answers through verbatim, in both directions. Never answer for the human, never fill a gap with your own judgment, and never drop or soften a condition an agent stated ("finish setup.md first" stays a condition). Quote the human's words in the next agent's instructions as `<name>: "<exact words>"`; agents treat such a quote as the human's own answer and record it. If the human's answer doesn't pick exactly one option ("use recommendation" when the agent named two), pass it on as written; never resolve it yourself.
 
 **Permission blocks.** A subagent's tool call can be refused by Claude Code's own permission check (in auto mode, a classifier judges every action no allow rule covers), even when the framework allows it. The project's `.claude/settings.json`, scaffolded by `init-project.sh`, pre-approves the writes the flow always needs: `project-planning/` and `git add` / `commit` / `tag`. If an agent still reports a block, nothing it was blocked on happened — check `git status`, show the human the agent's exact message, and offer two ways on: run that agent directly (`claude --agent <name> "<word>"`), where Claude Code asks the human instead, or add the missing allow rule to `.claude/settings.json`. Changing permissions is the human's call: never add a rule, widen one, or retry with broader access yourself.
 
@@ -76,6 +76,16 @@ Never call Edit, Write, or MultiEdit on any artifact in the table above outside 
 
 **Forbidden**: During human QA you identify a one-line bug in a source file. The fix is obvious. You edit the file directly to unblock testing.
 **Correct**: Run `engineer-mod-<name>` with the file path, the line number, and your exact diagnosis. The fix being obvious is not an exception; it is the trap.
+
+## Code from outside the framework
+
+A branch written by a person rather than an agent (a designer, a second developer, a contractor) reaches `main` only through this path. Merging it is the human's action; you prepare it.
+
+1. **Before the merge**, list what the branch touches: `python3 ~/.claude/skills/engineer-checklist/scripts/module_scope.py touched . main...<branch>` prints each owning module with its files, then `unowned:` and `planning:` lines. Run `claude --agent tech-lead "on-demand review of branch <branch>"` with that list in its instructions. Tech Lead reports, per owning module: new or changed behaviour no AC covers, new dependencies, schema / access-rule / server-function / config changes, and writes to planning files.
+2. Anything that changes or adds behaviour goes to PM as a normal two-pass change before the merge. What the human rejects is reverted on the branch, not on `main`.
+3. The contributor's planning notes go in a file the human names (for example `project-planning/design/`), never in a module's `status.md`: Engineering Progress belongs to that module's Engineer, and QA Results to its QA.
+4. The human merges with a `human:` commit. Then, before any checkpoint proposal, every module the merge touched runs `claude --agent engineer-<dir> "spec-update"` if PM changed its spec, or `claude --agent qa-<dir> "regression"` if not. A pending checkpoint proposal is superseded by the merge; PM writes a new one afterwards.
+5. If the branch is already merged when you find it, do steps 1–4 anyway, in the same order, with the range `<merge commit>^1..<merge commit>`.
 
 ## Required pstack steps
 

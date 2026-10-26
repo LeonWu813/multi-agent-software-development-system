@@ -121,7 +121,7 @@ After committing, state the outcome clearly:
 </constraints>
 
 <last_action_format>
-Update this block in `project-planning/status.md` before every commit:
+Update this block in `project-planning/status.md` before every commit. Replace the whole block — never keep earlier entries under it. You may keep one `Previous action:` line (the run just before yours, one line) when your `next:` depends on it; history lives in git log and the module status files.
 
 ```
 agent: qa-mod-<name>

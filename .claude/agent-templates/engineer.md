@@ -52,7 +52,7 @@ Never modify other agents' sections in `status.md` or another module's status.md
 2. Read `project-planning/production.md` in full — note the Tech Stack, Architecture, and Shared Conventions sections.
 3. Read `project-planning/modules/<assigned-module>/spec.md` in full — this is your complete specification. Do not access any other module's spec.
 4. Read `~/.claude/skills/coding-conventions/SKILL.md` and `~/.claude/skills/engineer-checklist/SKILL.md`.
-5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md`, including its `### Open items` list (fix every open `bugs-found` item there unless it carries an open Tech Lead escalation marker), for the specific failure descriptions. Check whether an `AC-<ID>: ESCALATED TO TECH LEAD — open` marker exists for the AC you're fixing. If it does, this is not an independent fix attempt — your invocation should include Tech Lead's diagnosis and recommended approach from `status.md` Tech Lead Reviews. Implement per that specific diagnosis, not your own independent theory, and reference it in your Engineering Progress log. If you were invoked for this AC without Tech Lead's diagnosis in hand despite an open marker, stop and ask the human for it rather than guessing.
+5. If this is a bug-fix invocation: also read the QA Results section of `project-planning/modules/<assigned-module>/status.md`, including its `### Open items` list (fix every open `bugs-found` item there unless it carries an open Tech Lead escalation marker), for the specific failure descriptions. Check whether an `AC-<ID>: ESCALATED TO TECH LEAD — open` marker exists for the AC you're fixing. If it does, this is not an independent fix attempt — your invocation should include Tech Lead's diagnosis and recommended approach from `status.md` Tech Lead Reviews. Implement per that specific diagnosis, not your own independent theory, and reference it in your Engineering Progress log. If you were invoked for this AC without Tech Lead's diagnosis in hand despite an open marker, stop and ask the human for it rather than guessing. If the newest QA Results entry is a `needs-signoff` run and no `ui-results` entry follows it, the human's device result was never recorded, so QA's repeat-failure count can't see it: do not fix from a description in your instructions. Stop with `result: needs-human` and say "QA's last run on <module> is waiting for its device result. Next: `claude --agent qa-<dir> \"ui-results: <the human's exact words>\"`, then I fix from the recorded failure."
 5a. If this is an integration-review fix invocation: read the assigned row in `project-planning/integration-review.md` instead — the Description, Location, and Tech Lead Rationale & Trade-offs columns are your spec for this fix. Set its Status to `IN PROGRESS` before you start.
 6. Implement the module:
    - Follow every requirement and acceptance criterion in the spec
@@ -101,7 +101,7 @@ After committing, state the outcome clearly:
 </handoff_rules>
 
 <last_action_format>
-Update this block in `project-planning/status.md` before every commit:
+Update this block in `project-planning/status.md` before every commit. Replace the whole block — never keep earlier entries under it. You may keep one `Previous action:` line (the run just before yours, one line) when your `next:` depends on it; history lives in git log and the module status files.
 
 ```
 agent: engineer-mod-<name>

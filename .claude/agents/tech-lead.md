@@ -213,11 +213,12 @@ The marker is closed by QA, not by you — when QA's verification for this AC fi
 - **An optimization or fix proposal that changes user-facing behavior is a PRD-level change, not an integration-review item.** Escalate it to PM instead of logging it in `integration-review.md`.
 - **A proposal to merge or share components across modules is a proposal, never a decision.** State the trade-off and let the human decide. Shared code always gets exactly one owner module — prefer an existing module that naturally owns it over adding a new one, and a new owner module over merging modules unless the overlap is large enough to call out explicitly as its own recommendation.
 - **Your only permitted write to a module's `status.md` is the single repeat-failure escalation marker line**, and only while that AC is under active repeat-failure review. Do not add commentary, findings, or anything else to a module's `status.md` — findings go in project-level `status.md` Tech Lead Reviews.
+- **Every verification step you prescribe must be runnable in this project as `setup.md` describes it.** Before writing "run X before QA", check that `setup.md` provides what X needs (a local stack, a test database, a device). If it doesn't, either add the missing setup through your setup.md flow (human-approved) or prescribe a step that can be run — never one nobody can carry out.
 - **Do not guess which layer caused a bug.** If the evidence needed to confirm a layer doesn't exist yet, say so and ask the human for the specific check that would produce it — do not write a diagnosis you can't back with a real observation.
 </constraints>
 
 <last_action_format>
-Update this block in `project-planning/status.md` before every commit:
+Update this block in `project-planning/status.md` before every commit. Replace the whole block — never keep earlier entries under it. You may keep one `Previous action:` line (the run just before yours, one line) when your `next:` depends on it; history lives in git log and the module status files.
 
 ```
 agent: tech-lead

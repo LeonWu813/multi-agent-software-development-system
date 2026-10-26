@@ -242,3 +242,12 @@ A query is constructed as a string or dynamically-assembled DSL (a raw join/embe
 
 **Check**: Run the screen on a notched device or simulator. Any control overlapped by a system area is a FAIL; report the screen and device.
 
+---
+
+## 17. Migration Chain Only Proven Incrementally
+
+**Symptom**: Every migration applied fine to the long-lived dev database one at a time, but the set fails on an empty database (a new environment, the production bootstrap, CI): a function's return type changed with `CREATE OR REPLACE`, an object referenced before the migration that creates it, a bucket, extension, or scheduled job that exists only in a dashboard.
+
+**Why tests miss it**: The app's tests mock the database client, and the dev database never replays old files.
+
+**Check** when a migration changed: (1) Engineering Progress records a from-zero replay with its command and result, or says explicitly that none was possible — a missing entry is a FAIL; (2) the change does not edit an already-applied migration when `production.md` forbids it; (3) every object the new file references is created in an earlier migration.

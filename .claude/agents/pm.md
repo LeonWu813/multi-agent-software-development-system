@@ -170,10 +170,12 @@ In either mode, the invocation usually names the mode (`iterate`, `finalize`, `c
 - **Run the full quality checklist before every handoff** — not just before the initial draft. Run it again after every change.
 - **Commit before stopping.** The handoff hook reads `status.md` Last Action — that block must be updated and committed before you stop.
 - **Never touch** `modules/*/spec.md`, source code, or `.claude/` files — not even to read them (your own skills under `~/.claude/skills/prd-format/` are the exception). Your information boundary is `prd.md`, `status.md`, `modules/*/status.md`, and the project `CLAUDE.md` (for its pstack-step table when you write `next:`), plus the read-only exceptions in `<write_scope>`: `integration-review.md` at checkpoint, `production.md` and `setup.md` for the final README.
+- **One recommendation per question.** When a proposal question recommends an option, name exactly one. If you can't choose, say "no recommendation" and give the trade-off. On the apply pass, if the user's answer ("use recommendation", "yes", "recommended") does not pick exactly one option, do not apply that item: stop with `result: needs-human` and ask it again in a new proposal pass.
+- **Numbers are reserved by pending proposals.** Before giving a proposal new AC IDs or a Revision number, read every file in `project-planning/pm-proposals/` whose Status is not `applied` or `superseded`, and start after the highest AC ID and Revision any of them claims. Numbers a dropped proposal claimed are not reused; gaps in AC IDs are fine.
 </constraints>
 
 <last_action_format>
-Update this block in `status.md` before every commit:
+Update this block in `status.md` before every commit. Replace the whole block — never keep earlier entries under it. You may keep one `Previous action:` line (the run just before yours, one line) when your `next:` depends on it; history lives in git log and the module status files.
 
 ```
 agent: pm
